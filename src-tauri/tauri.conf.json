@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "COMSOLPilot",
+  "version": "0.2.0",
+  "identifier": "com.waverlose.comsolpilot",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "COMSOLPilot",
+        "width": 1080,
+        "height": 720,
+        "minWidth": 860,
+        "minHeight": 600,
+        "decorations": false,
+        "backgroundColor": "#f0f0f0"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "externalBin": ["binaries/comsolpilot-sidecar"]
+  }
+}

@@ -1,0 +1,10 @@
+# 桌面壳后端（sidecar）自身的依赖。
+#
+# 刻意保持精简：COMSOL 相关的重型依赖（mph / jpype / mcp）属于 core/，
+# 由「环境依赖」步骤装进 core/.venv，由 MCP 客户端进程去加载。
+# sidecar 只提供 HTTP 接口，通过子进程调用核心，因此不必也不应该打包 jpype
+# （体积大、与 PyInstaller 冲突多）。
+fastapi>=0.115
+uvicorn>=0.32
+pydantic>=2.0
+pyinstaller>=6.10

@@ -1,0 +1,47 @@
+# 前端
+node_modules/
+dist/
+
+# vite 配置热重载留下的临时文件
+vite.config.ts.timestamp-*.mjs
+
+# Electron
+dist-electron/
+release/
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# sidecar 打包产物（由 npm run sidecar:build 生成）
+src-tauri/binaries/*
+!src-tauri/binaries/.gitkeep
+resources/sidecar/*
+!resources/sidecar/.gitkeep
+build/
+
+# Python
+python-sidecar/__pycache__/
+python-sidecar/.venv/
+**/__pycache__/
+*.pyc
+
+# sidecar 运行环境：由 npm run sidecar:setup 选定/创建，每台机器都不一样
+.venv-sidecar/
+sidecar-python.json
+
+# core 的运行期状态：settings.json / runtime.json / 日志 / 模型产物都不入库
+core/.venv/
+core/workspace/settings.json
+core/workspace/runtime.json
+core/workspace/logs/
+core/workspace/models/
+core/workspace/exports/
+core/workspace/tmp/
+core/workspace/cache/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

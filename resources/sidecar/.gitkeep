@@ -1,0 +1,7 @@
+# Python 后端的打包产物放这里，由 electron-builder 复制进安装包的 resources/sidecar/。
+#
+# 生成方式：npm run sidecar:build
+#   —— 它会用 PyInstaller 打出 comsolpilot-sidecar-<triple>.exe 给 Tauri 用，
+#      同时复制一份命名为 comsolpilot-sidecar.exe 放到本目录给 Electron 用。
+#
+# 这个文件只是占位，保证目录存在（electron-builder 的 extraResources 指向它）。
