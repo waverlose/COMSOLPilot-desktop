@@ -187,9 +187,10 @@ button {
 }
 
 .titlebar-mark {
-  color: var(--accent);
-  font-size: 11px;
-  line-height: 1;
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .titlebar-title {
@@ -764,18 +765,18 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin: 0 0 10px;
-  padding: 6px 11px;
+  margin: 0 0 11px;
+  padding: 7px 12px;
   background: var(--chrome-alt);
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--ink);
 }
 
 .card > *:not(.card-title) {
-  margin-left: 11px;
-  margin-right: 11px;
+  margin-left: 12px;
+  margin-right: 12px;
 }
 
 .card-span {
@@ -826,13 +827,13 @@ button {
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 13px;
-  min-height: 24px;
+  gap: 6px;
+  padding: 5px 14px;
+  min-height: 28px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: linear-gradient(180deg, #fdfdfd 0%, #ececec 100%);
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--ink);
   cursor: default;
   white-space: nowrap;
@@ -984,12 +985,12 @@ button {
 .status-card {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 11px;
+  gap: 10px;
+  padding: 11px 14px;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
   background: var(--sunken);
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 .status-card-ok {
@@ -1057,19 +1058,20 @@ button {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  margin-bottom: 11px;
+  gap: 4px;
+  margin-bottom: 13px;
 }
 
 .field-label {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--ink);
 }
 
 .field-hint {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink-muted);
-  line-height: 1.5;
+  line-height: 1.55;
+  max-width: 460px;
 }
 
 .field-row {
@@ -1081,15 +1083,22 @@ button {
 .input,
 .select {
   width: 100%;
-  padding: 3px 7px;
-  min-height: 23px;
+  padding: 5px 8px;
+  min-height: 28px;
   font: inherit;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   outline: none;
+}
+
+/* 卡片可以很宽，但输入框不该跟着一起拉长——538px 宽、25px 高的扁条很难看。
+   只约束可编辑的控件；只读的路径框（.is-mono）反而需要宽度来显示完整路径。 */
+.card .input:not(.is-mono),
+.card .select {
+  max-width: 340px;
 }
 
 .input:focus,
@@ -1219,12 +1228,12 @@ button {
 .client-tile {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 9px;
+  gap: 9px;
+  padding: 9px 12px;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
   background: var(--surface);
-  font-size: 12px;
+  font-size: 12.5px;
   cursor: default;
   text-align: left;
 }
@@ -1235,8 +1244,8 @@ button {
 }
 
 .client-tile-check {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -1298,6 +1307,13 @@ button {
 .log-panel-fill {
   flex: 1;
   min-height: 160px;
+  max-height: none;
+}
+
+/* 向导里的日志面板：安装依赖时输出很长，让它吃掉内容区的剩余高度 */
+.step-body > .log-panel {
+  flex: 1;
+  min-height: 180px;
   max-height: none;
 }
 
@@ -1385,129 +1401,222 @@ button {
 }
 
 /* ==========================================================================
-   引导向导 —— 做成经典对话框
+   引导向导 —— 整屏设置向导
+   --------------------------------------------------------------------------
+   刻意不做成居中漂浮的小对话框：首次打开软件看到的就是这一屏，窗口很大而卡片
+   很小会显得又空又廉价。改成「标题条 + 左步骤栏 + 右内容区」，
+   内容区吃掉剩余高度，各步骤的操作按钮靠 margin-top:auto 贴底。
    ========================================================================== */
 
-.onboarding-shell {
-  min-height: 100vh;
+.wizard {
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  padding: 32px;
-  background: var(--chrome);
+  background: var(--surface);
+  overflow: hidden;
 }
 
-.onboarding-progress {
+.wizard-titlebar {
+  height: 34px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin-bottom: 12px;
-}
-
-.progress-dot {
-  width: 9px;
-  height: 9px;
-  border: 1px solid var(--border-strong);
-  border-radius: 1px;
-  background: var(--surface);
-}
-
-.progress-dot.is-filled {
-  background: var(--accent);
-  border-color: var(--accent-hover);
-}
-
-.progress-label {
-  margin-left: 9px;
-  font-size: 11px;
-  color: var(--ink-muted);
-  font-family: var(--font-mono);
-}
-
-.onboarding-card {
-  width: 100%;
-  max-width: 500px;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  padding: 0 0 18px;
-  box-shadow: 2px 4px 14px rgba(0, 0, 0, 0.16);
-}
-
-.onboarding-card > *:not(.onboarding-card-title) {
-  margin-left: 22px;
-  margin-right: 22px;
-}
-
-.onboarding-card-title {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0 0 16px;
-  padding: 6px 11px;
+  gap: 8px;
+  padding: 0 12px;
   background: linear-gradient(180deg, #2a7cba 0%, #16659f 100%);
   color: #fff;
-  font-size: 12px;
-  font-weight: 600;
+  -webkit-app-region: drag;
+  user-select: none;
 }
 
-.step-body {
+.wizard-titlebar-text {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.wizard-titlebar-spacer {
+  flex: 1;
+}
+
+.wizard-titlebar-step {
+  font-size: 11.5px;
+  font-family: var(--font-mono);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.wizard-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* 左侧步骤栏 —— 相当于安装程序的导航树 */
+.wizard-rail {
+  width: 224px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 13px;
+  background: var(--chrome);
+  border-right: 1px solid var(--border);
 }
 
-.step-center {
-  align-items: center;
-  text-align: center;
+.wizard-rail-head {
+  padding: 10px 14px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid var(--border-soft);
 }
 
-.welcome-mark {
-  width: 40px;
-  height: 40px;
+.wizard-steps {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.wizard-step {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border: 1px solid var(--accent-line);
-  border-radius: var(--radius);
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 18px;
+  gap: 10px;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  color: var(--ink-muted);
+  border-left: 3px solid transparent;
 }
 
-.welcome-mark-done {
+.wizard-step-no {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--ink-faint);
+}
+
+.wizard-step.is-done .wizard-step-no {
   background: var(--success);
   border-color: #245530;
   color: #fff;
 }
 
+.wizard-step.is-done {
+  color: var(--ink-soft);
+}
+
+/* 当前步骤：蓝底白字 + 左侧蓝条，和 COMSOL 的选中态一致 */
+.wizard-step.is-current {
+  background: var(--surface);
+  border-left-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.wizard-step.is-current .wizard-step-no {
+  background: var(--accent);
+  border-color: var(--accent-hover);
+  color: #fff;
+  font-weight: 600;
+}
+
+.wizard-rail-foot {
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 10.5px;
+  line-height: 1.7;
+  color: var(--ink-faint);
+}
+
+/* 右侧内容区 */
+.wizard-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 22px 30px 20px;
+}
+
+.wizard-content > .step-body {
+  max-width: 940px;
+  min-height: 100%;
+}
+
+.step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* 欢迎 / 完成两屏内容少，整块居中才不显得空 */
+.step-center {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.welcome-mark {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.welcome-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.welcome-mark-done {
+  border-radius: 50%;
+  background: var(--success);
+  border: 1px solid #245530;
+  color: #fff;
+  font-size: 26px;
+}
+
 .step-title {
   margin: 0;
-  font-size: 15px;
+  font-size: 21px;
   font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
 .step-title-sm {
   margin: 0;
-  font-size: 13.5px;
+  font-size: 17px;
   font-weight: 600;
 }
 
 .step-subtitle {
   margin: 0;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--ink-muted);
-  line-height: 1.65;
+  line-height: 1.7;
 }
 
+.step-center .step-subtitle {
+  max-width: 520px;
+}
+
+/* 操作条贴到内容区底部：内容区是撑满剩余高度的，靠 auto 把它推下去 */
 .step-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 4px;
-  padding-top: 13px;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 14px;
   border-top: 1px solid var(--border-soft);
 }
 

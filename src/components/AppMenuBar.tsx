@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Check, Copy, Minus, Square, X } from "lucide-react";
 
+import appIcon from "../assets/app-icon.png";
 import {
   closeWindow,
   isWindowMaximized,
@@ -118,7 +119,7 @@ export function AppMenuBar({ actions, showMessages, onToggleMessages }: Props) {
   return (
     <>
       <div className="titlebar" data-tauri-drag-region>
-        <span className="titlebar-mark">◆</span>
+        <img className="titlebar-mark" src={appIcon} alt="" width={16} height={16} draggable={false} />
         <span className="titlebar-title">COMSOLPilot</span>
         <span className="titlebar-sub">— AI 驱动的 COMSOL 控制台</span>
         <span className="titlebar-spacer" />
@@ -202,13 +203,25 @@ export function AppMenuBar({ actions, showMessages, onToggleMessages }: Props) {
             </button>
           </div>
           <div style={ABOUT_BODY_STYLE}>
-            <p style={{ margin: "0 0 8px" }}>
-              <strong>COMSOLPilot 桌面端</strong> — 把「检测 COMSOL / 配置环境 / 接入 AI 客户端 /
-              启停服务端」这几件命令行活儿，收成点几下就能完成。
-            </p>
-            <p style={{ margin: 0, color: "var(--ink-muted)" }}>
-              核心 COMSOL 自动化逻辑沿用 COMSOLPilot 项目，界面与外壳是本工程新增的。
-            </p>
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <img
+                src={appIcon}
+                alt=""
+                width={44}
+                height={44}
+                draggable={false}
+                style={{ flexShrink: 0 }}
+              />
+              <div>
+                <p style={{ margin: "0 0 8px" }}>
+                  <strong>COMSOLPilot 桌面端</strong> — 把「检测 COMSOL / 配置环境 / 接入 AI
+                  客户端 / 启停服务端」这几件命令行活儿，收成点几下就能完成。
+                </p>
+                <p style={{ margin: 0, color: "var(--ink-muted)" }}>
+                  核心 COMSOL 自动化逻辑沿用 COMSOLPilot 项目，界面与外壳是本工程新增的。
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}

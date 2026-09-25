@@ -1,3 +1,5 @@
+import appIcon from "../../assets/app-icon.png";
+
 interface Props {
   onNext: () => void;
 }
@@ -5,7 +7,9 @@ interface Props {
 export function WelcomeStep({ onNext }: Props) {
   return (
     <div className="step-body step-center">
-      <div className="welcome-mark">◆</div>
+      <div className="welcome-mark">
+        <img src={appIcon} alt="" draggable={false} />
+      </div>
       <h1 className="step-title">让 AI 直接驱动 COMSOL</h1>
       <p className="step-subtitle">
         接下来几步，我们会找到你的 COMSOL 安装、配置好运行环境，

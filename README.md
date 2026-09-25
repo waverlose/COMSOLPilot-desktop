@@ -107,6 +107,29 @@
 三条导航入口——**菜单栏、功能区、模型开发器**——通向同一批页面，
 同一个动作在哪触发行为都一致：全部收敛在 `App.tsx` 的 `ChromeActions` 里实现。
 
+首次启动先走**设置向导**，同样是一整屏而不是居中漂浮的小对话框：
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ COMSOLPilot 设置向导                              第 2 / 5 步 │  蓝色标题条
+├────────────────┬─────────────────────────────────────────────┤
+│ 设置步骤        │  检测 COMSOL 安装                            │
+│  ✓ 欢迎         │  依次扫描设置记录、上次手动指定的目录……        │
+│  ② 检测 COMSOL  │                                             │
+│  ③ 环境依赖     │  ┌───────────────────────────────────────┐  │
+│  ④ 接入客户端   │  │ ✓ 找到 COMSOL 6.0                     │  │
+│  ⑤ 完成         │  │   D:\comsol6.0\COMSOL60               │  │
+│                │  └───────────────────────────────────────┘  │
+│                │                                             │
+│ 全程约 3-5 分钟 │                 上一步 暂时跳过   下一步 ▸    │  操作条贴底
+└────────────────┴─────────────────────────────────────────────┘
+```
+
+内容区撑满剩余高度（`.wizard-content > .step-body { min-height: 100% }`），
+各步骤的操作按钮靠 `margin-top: auto` 贴到底部，所以窗口拉多大都不会出现
+「大窗口里飘着一张 500px 小卡片」。侧栏 224px、内容区最大 940px，
+其余宽度留给留白，读起来是正常安装程序的密度。
+
 数据上，外壳（状态栏、功能区）和页面共用 `lib/appState.ts` 里那一份 `/api/state`：
 只有一个地方在轮询，避免两边各拉一遍、还可能不同步。
 
@@ -145,10 +168,12 @@ comsolpilot-desktop/
 │   ├── lib/appState.ts         全局状态：外壳与页面共用的 /api/state
 │   └── lib/api.ts              sidecar 客户端封装
 │
+├── assets/app-icon.png         图标设计稿（唯一需要维护的图标源文件）
+│
 ├── src-tauri/                  Rust 外壳（Tauri）
 │   ├── src/main.rs             入口：端口、令牌、原生命令
 │   ├── src/sidecar.rs          sidecar 生命周期 + 日志转发
-│   ├── icons/                  应用图标
+│   ├── icons/                  应用图标（由 assets/app-icon.png 生成，别手改）
 │   └── tauri.conf.json
 │
 ├── electron/                   Node 外壳（Electron）
@@ -219,8 +244,19 @@ npm run tauri:dev      # Tauri：同时拉起 vite 和 Rust（需要装 Rust）
 npm run electron:dev   # Electron：同时拉起 vite 和 Electron（只需要 Node）
 ```
 
-两种外壳的开发态都会**自动用 `python` 直接跑 `python-sidecar/sidecar_server.py`**，
-不需要先打包 sidecar。想指定解释器就设环境变量 `COMSOLPILOT_PYTHON`。
+两种外壳的开发态都会直接跑 `python-sidecar/sidecar_server.py`，不需要先打包 sidecar。
+**但它要求那个 Python 装了 fastapi / uvicorn / pydantic**——PATH 里第一个 `python`
+常常没有，于是后端起不来，界面上只看到「连不上后端」，报错还埋在日志里。
+所以第一次先跑一次：
+
+```bash
+npm run sidecar:setup
+```
+
+它先找机器上**现成能用**的解释器（一个包都不装，直接复用），一个都没有才在工程下建
+`.venv-sidecar` 并安装依赖，最后把选定路径写进 `sidecar-python.json`（不入库）。
+主进程挑解释器的顺序是 `COMSOLPILOT_PYTHON` → `sidecar-python.json` → `python`/`py`/`python3`，
+并且会**真去 import 一次**确认依赖齐全，而不是只看能不能执行。
 
 > Electron 首次 `npm install` 要从网上拉约 100 MB 的运行时。国内网络建议先设镜像：
 >
@@ -251,6 +287,10 @@ npm run dev        # http://localhost:5173
 
 ```bash
 # 1. 生成图标（仓库里已带一份，换 logo 时才需要）
+#    设计稿放 assets/app-icon.png，一条命令出全套：
+#    src-tauri/icons/{32x32,128x128,128x128@2x,icon}.png + icon.ico（7 档尺寸）
+#    + src/assets/app-icon.png（标题栏和向导用的 64px 小图）
+#    换一张：python scripts/generate_icons.py path/to/other.png
 npm run icons
 
 # 2. 把 Python 后端打成单文件 exe
@@ -345,10 +385,13 @@ npm run electron:build   # 产物：release/COMSOLPilot_0.2.0_x64-setup.exe
 | COMSOL 探测 | 只在 sidecar 进程里 import mph | 走核心脚本子进程，sidecar 不必打包 jpype |
 | 开发联调 | 需要手工改 Rust 代码才能跑 | 开发态自动回退到直接跑 Python |
 | 跨域 | 没配 CORS，前端请求必被浏览器拦 | CORS 白名单 + 启动令牌 |
-| 图标 | 目录为空，`tauri build` 必失败 | 已生成全套图标，附生成脚本 |
+| 图标 | 目录为空，`tauri build` 必失败 | 以 `assets/app-icon.png` 为唯一源文件，一条命令出全套图标 |
 | 界面 | 只有概览和日志两个空壳页 | 概览（COMSOL/环境/服务端/客户端四张卡）、AI 客户端管理、设置、日志 |
 | 桌面外壳 | 只有 Tauri（必须装 Rust 才能编译） | 增加 **Electron** 外壳，只需 Node 即可构建；两者差异收敛在 `src/lib/shell.ts` |
 | 界面风格 | 暖色衬线 + 圆角卡片（网页语言） | 重做为 COMSOL 的工程软件风格：菜单栏 + 功能区 + 模型开发器 + 消息栏 + 状态栏 |
+| 窗口边框 | 系统标题栏，与自绘标题栏叠成两条 | 无边框 + 自绘最小化/最大化/关闭 |
+| 设置向导 | 居中漂浮的 500px 小卡片 | 整屏：标题条 + 左步骤栏 + 撑满高度的内容区，操作条贴底 |
+| 表单控件 | 卡片多宽输入框就多宽（538×25 的扁条） | 输入框限宽 340px、高 28px，只读路径框保持全宽 |
 
 ---
 
@@ -371,6 +414,25 @@ COMSOL 的 JVM 启动通常要 30-60 秒，属正常。到「日志」页看
 **怎么强制用某个 Python？**
 「设置」页填 `python_exe`，或在「依赖」一步的候选列表里点「使用这个环境」，
 或设环境变量 `COMSOLPILOT_PYTHON`。三者的优先级见上文。
+
+**任务栏 / 任务管理器里显示的是 "Electron"，不是 "COMSOLPilot"**
+开发态跑的是 `electron.exe` 本身，进程名必然是 Electron，这是宿主决定的，
+改不掉。能改、也已经改掉的是三处品牌信息：`app.setName("COMSOLPilot")`
+（影响 `app.getName()`、对话框、`%APPDATA%` 数据目录）、
+`app.setAppUserModelId("com.waverlose.comsolpilot")`（Windows 任务栏分组与通知），
+以及窗口/任务栏图标。想要任务栏真正显示 `COMSOLPilot`，需要 `npm run electron:build`
+打出安装包——那时进程是 `COMSOLPilot.exe`。
+顺带一提，Electron 自带的英文菜单栏（File / Edit / …）已用
+`Menu.setApplicationMenu(null)` 去掉，DevTools 快捷键补在 F12 / Ctrl+Shift+I。
+
+**提示 "Unable to find Electron app"**
+`package.json` 的 `main` 指向 `dist-electron/main.js`，那是编译产物、不在版本库里。
+`npm run electron:start` 会自动先编译；若你手动跑 `electron .`，先执行
+`npm run electron:compile`。脚本里也加了前置检查，缺文件时会直接告诉你该跑哪条命令。
+
+**窗口打开是白屏**
+开发态默认连 `localhost:5173` 的 vite。vite 没起时会自动回退加载 `dist/` 构建产物
+（日志里会写明），所以先 `npm run build` 就不会白屏。要热更新用 `npm run electron:dev`。
 
 **界面看着不对 / 想改配色**
 配色与尺寸都在 `src/index.css` 顶部的 `:root` 里，改那几个变量即可。
