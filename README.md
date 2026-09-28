@@ -184,8 +184,18 @@ comsolpilot-desktop/
 ├── electron-builder.yml        Electron 打包配置（与 tauri.conf.json 对等）
 ├── resources/sidecar/          Electron 用的后端 exe（由 sidecar:build 生成）
 │
+├── .github/workflows/
+│   ├── ci.yml                  push/PR：类型检查、构建、版本一致性、cargo check
+│   └── release.yml             推 v* tag：构建 nsis+msi 并创建草稿 Release
+│
+├── docs/
+│   ├── packaging.md            打包发布手册（版本、签名、自动更新）
+│   └── *-architecture-notes.md 同类开源项目的架构调研
+│
 └── scripts/
     ├── generate_icons.py       生成 src-tauri/icons 下的图标
+    ├── sync-version.mjs        版本号单一来源：同步到 Tauri 的两处清单
+    ├── setup-sidecar-env.mjs   挑一个能跑后端的 Python 解释器
     └── compile-electron.mjs    编译 electron/*.ts 到 dist-electron/
 ```
 
@@ -283,6 +293,9 @@ npm run dev        # http://localhost:5173
 
 ## 打包
 
+> 完整手册（版本号管理、代码签名、自动更新、常见问题）见 **[`docs/packaging.md`](docs/packaging.md)**。
+> 下面是速查。
+
 两种外壳的前两步一样，第三步二选一：
 
 ```bash
@@ -295,14 +308,27 @@ npm run icons
 
 # 2. 把 Python 后端打成单文件 exe
 #    同时产出两份：src-tauri/binaries/（给 Tauri）、resources/sidecar/（给 Electron）
+#    **这步不能跳**：tauri.conf.json 的 externalBin 指向它的产物
 npm run sidecar:build
 
 # 3. 打包安装程序，二选一
-npm run tauri:build      # 产物：src-tauri/target/release/bundle/nsis/COMSOLPilot_0.2.0_x64-setup.exe
-npm run electron:build   # 产物：release/COMSOLPilot_0.2.0_x64-setup.exe
+npm run tauri:build          # Tauri：nsis + msi（MSI 首次会下载 WiX）
+npm run tauri:build:nsis     # Tauri：只要 nsis，跳过 WiX 下载
+npm run electron:build       # Electron：release/COMSOLPilot_0.2.0_x64-setup.exe
 ```
 
-双击安装后会自动创建开始菜单快捷方式与卸载程序。
+Tauri 产物在 `src-tauri/target/release/bundle/{nsis,msi}/` 下。
+双击安装后会自动创建开始菜单快捷方式与卸载程序，**只装当前用户**，不需要管理员权限。
+
+**改版本号只改 `package.json`**，然后同步到另外两处清单：
+
+```bash
+npm run version:sync     # 同步 tauri.conf.json 与 Cargo.toml
+npm run version:check    # 只校验（CI 用；不一致则退出码 1）
+```
+
+**发布**：推一个 `v<版本>` 的 tag，CI 会在 `windows-latest` 上自动构建 nsis+msi
+并创建**草稿态** Release。详见 `docs/packaging.md`。
 
 > **打包态的核心目录**：sidecar 首次安装依赖时，会把随包的核心复制到
 > `%LOCALAPPDATA%\COMSOLPilot\core`。这是必须的——MCP 客户端要自己执行

@@ -13,6 +13,15 @@ release/
 src-tauri/target/
 src-tauri/gen/
 
+# 自动更新的签名私钥。
+# 这个文件一旦泄漏，任何人都能伪造更新包推给你的用户；一旦丢失，
+# 已装出去的版本就再也收不到更新（只能让用户手动重装）。
+# 生成：npm run signer:generate   备份到密码管理器，不要只放在这台机器上。
+.tauri/
+*.key
+# 公钥是公开信息，嵌在应用里，可以入库
+!*.key.pub
+
 # sidecar 打包产物（由 npm run sidecar:build 生成）
 src-tauri/binaries/*
 !src-tauri/binaries/.gitkeep

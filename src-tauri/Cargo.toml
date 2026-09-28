@@ -2,7 +2,11 @@
 name = "comsolpilot-desktop"
 version = "0.2.0"
 description = "COMSOLPilot 桌面壳：负责拉起 Python sidecar、原生文件夹选择器和窗口管理"
+authors = ["waverlose"]
 edition = "2021"
+rust-version = "1.77"
+# 这是应用不是库：防止误跑 cargo publish 把壳发到 crates.io
+publish = false
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -18,3 +22,26 @@ portpicker = "0.1"
 [[bin]]
 name = "comsolpilot-desktop"
 path = "src/main.rs"
+
+# ---------------------------------------------------------------------------
+# 发布构建
+#
+# 默认的 release profile 是「编译速度优先」，对要发出去的安装包不合适。
+# 桌面壳本身不含计算密集代码，所以体积优先、编译慢一点无所谓。
+# 每一项都有具体理由，不要随手删：
+#
+#   codegen-units = 1   整个 crate 交给一个 codegen 单元，跨模块内联和死代码消除
+#                       才生效。默认是 16，会切断跨单元优化。
+#   lto = "thin"        thin LTO 拿到大部分跨 crate 优化收益，编译时间仍可控；
+#                       换 "fat" 能再小一点，但编译时间会明显变长。
+#   opt-level = "s"     优先体积而不是速度。壳里没有热循环，不值得为速度换体积。
+#   panic = "unwind"    **不要改成 "abort"**：unwind 才能保留 backtrace，
+#                       崩溃报告和日志里的调用栈全靠它。体积上省不了多少。
+#   strip = "symbols"   去掉符号表。发布产物不需要调试符号，能省下可观体积。
+# ---------------------------------------------------------------------------
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = "s"
+panic = "unwind"
+strip = "symbols"

@@ -1,0 +1,89 @@
+name: CI
+
+# 每次推 main 和每个 PR 都跑一遍。
+# 目标不是「测试通过」——这个项目没有单测——而是**在打包之前拦住三类低级错误**：
+#   1. 前端类型错误（tsc）
+#   2. 版本号在三个清单之间分叉（装出来的包和更新检查对不上）
+#   3. Rust 侧编译不过（本机没装 Rust 工具链，CI 是唯一的编译验证手段）
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 前端 + 清单：跑得快，先给结论
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: 前端与清单
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: 安装前端依赖
+        run: npm ci
+
+      - name: TypeScript 类型检查
+        run: npm run typecheck
+
+      - name: 前端构建
+        run: npm run build
+
+      # 版本号一旦分叉，症状是「装了新版但更新检查说已是最新」，
+      # 或者 Release 里的安装包名和 NSIS 生成的对不上——都很难一眼看出原因。
+      - name: 版本号一致性
+        run: node scripts/sync-version.mjs --check
+
+      # tauri.conf.json 是手改的 JSON，字段名写错要到打包时才报错。
+      # 这里提前做一次语法 + schema 基本校验。
+      - name: tauri.conf.json 可解析
+        run: python -c "import json,io;json.load(io.open('src-tauri/tauri.conf.json',encoding='utf-8'));print('ok')"
+
+      - name: Python 语法检查
+        run: python -m compileall -q python-sidecar core/src
+
+  # ---------------------------------------------------------------------------
+  # Rust：本机没装 Rust 工具链，这里是唯一的编译验证
+  # ---------------------------------------------------------------------------
+  rust:
+    name: Rust 编译检查
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # tauri.conf.json 里声明了 externalBin，cargo check 阶段该文件必须存在，
+      # 否则 tauri-build 会报「找不到外部二进制」。
+      # CI 里不真跑 PyInstaller（单文件打包要几分钟），放个占位文件即可——
+      # 真正的 sidecar 由 release.yml 构建并塞进安装包。
+      - name: 放置 externalBin 占位文件
+        shell: bash
+        run: |
+          mkdir -p src-tauri/binaries
+          touch src-tauri/binaries/comsolpilot-sidecar-x86_64-pc-windows-msvc.exe
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # 刻意不用 --locked：Cargo.lock 目前还没入库（本机从未编译过）。
+      # 第一次 CI 跑通后，把生成的 src-tauri/Cargo.lock 提交进来，
+      # 再把这里改成 --locked 以固定依赖版本。
+      - name: cargo check
+        working-directory: src-tauri
+        run: cargo check

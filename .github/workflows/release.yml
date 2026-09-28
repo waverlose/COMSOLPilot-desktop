@@ -1,0 +1,93 @@
+name: Release
+
+# 推一个形如 v0.2.0 的 tag 就出安装包并建 Release（草稿态，需要人工确认后发布）。
+#
+# 为什么用 tag 触发而不是手动点：版本号在 tag、package.json、tauri.conf.json、
+# Cargo.toml 四处出现，靠人同步一定会漂。这里先用 tag 反推版本、再校验四处一致，
+# 不一致就直接失败——把「版本对不上」挡在打包之前。
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: 构建 Windows 安装包
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: 安装前端依赖
+        run: npm ci
+
+      # tag 是 v0.2.0 → 期望 package.json 的 version 也是 0.2.0
+      - name: 校验 tag 与清单版本一致
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          echo "tag=$TAG_VERSION  package.json=$PKG_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::tag ($TAG_VERSION) 与 package.json ($PKG_VERSION) 不一致"
+            exit 1
+          fi
+
+      - name: 校验三处清单版本一致
+        run: node scripts/sync-version.mjs --check
+
+      - name: 安装 Python 依赖（含 PyInstaller）
+        run: python -m pip install -r python-sidecar/requirements.txt
+
+      # 必须在 tauri build 之前跑：tauri.conf.json 的 externalBin 指向
+      # src-tauri/binaries/comsolpilot-sidecar-<target-triple>.exe，
+      # 文件不在那里，打包会直接失败。
+      - name: 打包 Python sidecar 为单文件 exe
+        run: python python-sidecar/build_sidecar.py
+
+      - name: 构建并创建 Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 启用自动更新后取消下面两行的注释，并在仓库 Secrets 里配置：
+          #   TAURI_SIGNING_PRIVATE_KEY          私钥内容（npm run signer:generate 生成）
+          #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD 生成时设的口令（无口令则留空字符串）
+          # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # tagName 里的 __VERSION__ 由 tauri-action 用 tauri.conf.json 的 version 替换
+          tagName: v__VERSION__
+          releaseName: "COMSOLPilot v__VERSION__"
+          releaseBody: |
+            见仓库的 CHANGELOG。
+
+            安装包：
+            - `COMSOLPilot_*_x64-setup.exe`（NSIS，推荐）
+            - `COMSOLPilot_*_x64_en-US.msi`（MSI，企业部署用）
+
+            首次运行前请确认本机已安装 COMSOL Multiphysics；Python 环境可以在
+            「设置向导 → 环境依赖」里复用已有的，不必单独准备。
+          # 先出草稿，人工确认产物没问题再点发布——比直接发出去再撤回省事
+          releaseDraft: true
+          prerelease: false
+          args: --bundles nsis,msi

@@ -28,13 +28,29 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": ["nsis", "msi"],
+
+    "publisher": "waverlose",
+    "copyright": "Copyright © 2026 waverlose",
+    "category": "DeveloperTool",
+    "shortDescription": "COMSOL Multiphysics 的 MCP 服务端管理器",
+    "longDescription": "COMSOLPilot 用图形界面管理 COMSOL Multiphysics 的 MCP 服务端：探测本机 COMSOL 安装、复用已有的 Python 环境、一键把 MCP 连接器注册到各个 AI 客户端，并启停 COMSOL 服务端进程。",
+
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/comsolpilot-sidecar"]
+
+    "externalBin": ["binaries/comsolpilot-sidecar"],
+
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": true
+      }
+    }
   }
 }
