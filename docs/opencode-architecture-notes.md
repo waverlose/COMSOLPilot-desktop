@@ -54,17 +54,34 @@ OpenCode 团队在 2026-04-19 发了一篇官方说明
 > Doesn't Electron produce larger app bundles than Tauri? — Yeah, it's a trade-off we're
 > willing to make.
 
-### 对本工程的意义
+### 这三条理由对本工程**都不成立**
 
-本工程是 **Python 后端 + React 前端**，和 OpenCode 的「TypeScript 全栈」一样，
-**核心逻辑注定跑在 Python 进程里，Rust 外壳不参与任何业务计算**。也就是说
-OpenCode 的第 ③ 条理由在我们这里同样成立，而且更极端：`src-tauri/` 那层 Rust
-连「跑服务端」的活都干不了，它唯一的产出就是「开窗口 + 转发日志 + 挑端口」。
+这是本次调研最需要说清楚的一点：**不能因为 OpenCode 迁回 Electron 就认为
+Tauri 对本项目也是错误选择**。逐条对照：
 
-反过来说，OpenCode 选择 Electron 并不是因为 Tauri 差，而是因为**他们的技术栈
-在 webview 之外没有任何 Rust**。我们保留双外壳本身没问题，但要清楚：
-Tauri 版对我们是**纯增量成本**（多一套需要 Rust 工具链才能验证的窗口代码），
-收益只有「安装包更小」。
+| OpenCode 的理由 | 对本工程是否成立 | 原因 |
+| --- | --- | --- |
+| ① WebKit 渲染不一致、性能差 | **不成立** | 本项目 Windows-only（COMSOL 只有 Windows 版）。Tauri 在 Windows 用 **WebView2**，内核就是 Chromium，与 Electron 同源，不存在渲染差异 |
+| ② 打包 CLI 拖慢启动、Windows 偶发失败 | **不成立** | 我们的 sidecar 是 Python，**无论用哪个外壳都必须是外部进程**，与「是否把 CLI 塞进安装包」无关 |
+| ③ 想从 Bun 换到 Node，用 Electron 自带 Node 跑服务端 | **不成立** | 后端是 Python，Electron 内置的 Node 帮不上任何忙；`utilityProcess.fork()` 也 fork 不了 `.py` |
+
+作者自己的一句话正好解释了差异所在：
+
+> OpenCode is all written in TypeScript though, so the server needs to run in a
+> Node/Bun process regardless.
+
+他们的服务端**注定是 Node**，所以「让 Electron 自带 Node 来跑」是顺水推舟；
+我们的服务端**注定是 Python**，这个便宜我们占不到。
+
+**结论：「两套外壳都保留」这个决定站得住**，不必因为这篇文就砍掉 Tauri。
+但有一条真正可迁移的教训：**渲染一致性只在真要跨平台时才值钱**。
+本项目 Windows-only，所以双外壳的风险不是「两个平台长得不一样」，
+而是「两套窗口代码要同步维护」——这是纯维护成本，需要靠纪律而非技术解决。
+
+> 另一个结构性差异要记住：OpenCode 全栈 TypeScript，所以能用
+> `utilityProcess.fork()` 把服务端跑在 Electron 自带的 Node 里。
+> **我们后端是 Python，用不了 utilityProcess**，只能 `child_process.spawn`。
+> 这是本项目与它最大的实现差异，**不要照抄它的 sidecar 启动方式**。
 
 ---
 
@@ -201,15 +218,22 @@ Electron 侧在 `renderer/index.tsx` 里把 `window.api`（preload 暴露）绑�
 顺带解决一个现存问题：`POST /api/server/start` 要 30-60 秒才真的起来，
 现在靠前端轮询 `starting: true`；有了统一就绪通道后可以合并成一条状态流。
 
-**4.5 sidecar 换成 `utilityProcess.fork()`（仅 Electron 侧）**
+**4.5 sidecar 换成 `utilityProcess.fork()`（仅 Electron 侧）—— 实测不建议**
 
-好处：`serviceName` 让它出现在 `child-process-gone` 事件里、能被 Electron 统一回收
-（父进程被杀时子进程不会变孤儿）、`stdio: "pipe"` 语义一致。
+先说结论：**这条不值得抄**，列在这里是为了防止后人看到 OpenCode 的写法就照搬。
 
-⚠️ **但这条要谨慎**：`utilityProcess` 只能 fork **Node/JS 入口**，而我们的 sidecar 是
-Python 脚本。要用它就得写一个几行的 JS 启动器（`utilityProcess.fork("sidecar-launcher.js")`
-再由它 `spawn` Python），多一层转发。**性价比存疑**，除非 4.3/4.4 之后仍觉得
-进程管理不够稳。相比之下 `spawn` + `child-process-gone` 也能拿到崩溃原因。
+`utilityProcess` 只能 fork **Node/JS 入口**，而我们的 sidecar 是 Python 脚本。
+要用它就必须再写一个几行的 JS 启动器（`utilityProcess.fork("launcher.js")`
+由它去 `spawn` Python），凭空多一层进程转发，而换来的好处很有限：
+
+| 想要的好处 | 用现有 `spawn` 能否拿到 |
+| --- | --- |
+| 崩溃时知道原因 | ✅ `app.on("child-process-gone")` 对 `child_process.spawn` 出来的子进程同样会触发 |
+| 父进程退出时子进程被回收 | ✅ `before-quit` / `will-quit` 里已有 `stopSidecar()`，配合 4.2 的优雅停止即可 |
+| `stdio: "pipe"` 语义一致 | ✅ 已经在用 |
+| `serviceName` 便于在事件里识别 | ⚠️ 这条拿不到，但可以用 pid 匹配替代 |
+
+**建议：维持 `child_process.spawn`，只补 4.2/4.3 两件事。**
 
 **4.6 日志落盘**
 
