@@ -6,16 +6,15 @@ export function DoneStep({ onFinish }: Props) {
   return (
     <div className="step-body step-center">
       <div className="welcome-mark welcome-mark-done">✓</div>
-      <h2 className="step-title-sm">一切就绪</h2>
+      <h2 className="step-title-sm">准备完成</h2>
       <p className="step-subtitle">
-        COMSOL 已找到，依赖已装好，AI 客户端已配置完成。
+        软件已准备好进入工作台。AI 客户端配置由你复制或交给 AI 添加，COMSOL 服务也由你在主页启动。
       </p>
       <p className="step-subtitle">
-        接下来在「概览」页启动 COMSOL 服务端，然后到 AI 客户端里重新信任一次
-        连接器，就可以直接对话驱动 COMSOL 了。
+        添加配置后，到对应 AI 客户端重新信任或启用 comsolpilot，重启客户端并新建一个对话。旧对话不会自动刷新 MCP 工具列表。
       </p>
       <button className="btn btn-primary" onClick={onFinish}>
-        进入 COMSOLPilot
+        进入工作台
       </button>
     </div>
   );

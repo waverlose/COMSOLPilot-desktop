@@ -244,6 +244,16 @@ def get_clients():
     return [c.to_dict() for c in mcp_clients.list_clients()]
 
 
+@app.get("/api/clients/{client_id}/config")
+def get_client_config(client_id: str):
+    try:
+        return mcp_clients.config_profile(client_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @app.post("/api/clients/register")
 def register_clients(body: RegisterClientsBody):
     states, results = mcp_clients.register(body.clients)

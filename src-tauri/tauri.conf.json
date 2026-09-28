@@ -14,10 +14,10 @@
       {
         "label": "main",
         "title": "COMSOLPilot",
-        "width": 1080,
-        "height": 720,
-        "minWidth": 860,
-        "minHeight": 600,
+        "width": 940,
+        "height": 640,
+        "minWidth": 760,
+        "minHeight": 520,
         "decorations": false,
         "backgroundColor": "#f0f0f0"
       }

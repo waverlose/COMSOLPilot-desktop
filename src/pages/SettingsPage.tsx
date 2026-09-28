@@ -17,7 +17,7 @@ const LOGIN_MODES: { value: string; label: string; hint: string }[] = [
   { value: "force", label: "每次都询问", hint: "每次连接都要求输入登录信息。" },
 ];
 
-export function SettingsPage({ refreshKey = 0 }: { refreshKey?: number }) {
+export function SettingsPage({ refreshKey = 0, onOpenSetup }: { refreshKey?: number; onOpenSetup?: () => void }) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [versions, setVersions] = useState<VersionsResponse | null>(null);
   const [port, setPort] = useState("");
@@ -123,6 +123,7 @@ export function SettingsPage({ refreshKey = 0 }: { refreshKey?: number }) {
             这些值保存在 core/workspace/settings.json，启动脚本与 MCP 客户端都会读取。
           </p>
         </div>
+        {onOpenSetup && <button className="btn btn-ghost" onClick={onOpenSetup}>重新开始引导</button>}
       </div>
 
       {error && (

@@ -19,9 +19,10 @@ from typing import Iterable, Optional
 
 try:
     import core_bridge
+    import paths
     import server_manager
 except ImportError:  # pragma: no cover
-    from . import core_bridge, server_manager  # type: ignore[no-redef]
+    from . import core_bridge, paths, server_manager  # type: ignore[no-redef]
 
 # 核心没装好时前端仍要能渲染出客户端列表，这里只是兜底展示用的
 FALLBACK_CLIENTS: list[tuple[str, str]] = [
@@ -96,6 +97,38 @@ def list_clients() -> list[ClientState]:
             )
         )
     return states
+
+
+def config_profile(client_id: str) -> dict:
+    """Return a copy-ready connector profile without modifying client files."""
+    module = _targets()
+    if module is None:
+        raise RuntimeError("核心环境未就绪，请先完成开始引导中的运行环境步骤")
+
+    target = next((item for item in module._targets() if item.key == client_id), None)
+    if target is None:
+        raise ValueError(f"不支持的 AI 客户端：{client_id}")
+
+    config_path = target.resolve() or target.candidates[0]
+    port = server_manager.resolved_port()
+    entry = module._entry_for_kind(target.kind, port)
+    settings = paths.read_json(paths.settings_path())
+    interpreter = str(settings.get("python_exe") or module.python_exe())
+    if target.kind == "opencode":
+        entry["command"] = [interpreter, *entry.get("command", [])[1:]]
+    else:
+        entry["command"] = interpreter
+
+    return {
+        "id": target.key,
+        "label": target.label,
+        "kind": target.kind,
+        "path": str(config_path),
+        "core_root": str(module.project_root()),
+        "python_exe": interpreter,
+        "port": port,
+        "entry": entry,
+    }
 
 
 def register(client_ids: Iterable[str]) -> tuple[list[ClientState], list[dict]]:

@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Check, Copy, Minus, Square, X } from "lucide-react";
 
-import appIcon from "../assets/app-icon.png";
+import appIcon from "../../src-tauri/icons/icon.png";
 import {
   closeWindow,
   isWindowMaximized,

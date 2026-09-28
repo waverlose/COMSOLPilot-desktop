@@ -1,10 +1,11 @@
-import appIcon from "../../assets/app-icon.png";
+import appIcon from "../../../src-tauri/icons/icon.png";
 
 interface Props {
   onNext: () => void;
+  onSkip: () => void;
 }
 
-export function WelcomeStep({ onNext }: Props) {
+export function WelcomeStep({ onNext, onSkip }: Props) {
   return (
     <div className="step-body step-center">
       <div className="welcome-mark">
@@ -12,12 +13,12 @@ export function WelcomeStep({ onNext }: Props) {
       </div>
       <h1 className="step-title">让 AI 直接驱动 COMSOL</h1>
       <p className="step-subtitle">
-        接下来几步，我们会找到你的 COMSOL 安装、配置好运行环境，
-        并接入你正在用的 AI 客户端，全程大约 3-5 分钟。
+        按顺序确认 COMSOL 与运行环境，启动可观察的服务，再连接你选择的 AI 客户端。
       </p>
-      <button className="btn btn-primary" onClick={onNext}>
-        开始设置
-      </button>
+      <div className="welcome-actions">
+        <button className="btn btn-primary" onClick={onNext}>开始设置</button>
+        <button className="btn btn-text" onClick={onSkip}>稍后再说</button>
+      </div>
     </div>
   );
 }

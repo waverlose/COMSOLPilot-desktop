@@ -37,7 +37,7 @@ export function Dashboard({ onOpenClients, onRunSetup }: Props) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<"headless" | "gui">("headless");
+  const [mode, setMode] = useState<"headless" | "gui">("gui");
 
   const fatal = actionError ?? linkError;
 
@@ -92,6 +92,13 @@ export function Dashboard({ onOpenClients, onRunSetup }: Props) {
   const { comsol, deps, server, clients } = state;
   const registered = clients.filter((client) => client.registered).length;
   const detected = clients.filter((client) => client.detected).length;
+  const workflow = [
+    { id: "workflow-comsol", title: "COMSOL 安装", done: comsol.found },
+    { id: "workflow-runtime", title: "运行环境", done: deps.ready },
+    { id: "workflow-server", title: "COMSOL Server", done: server.running },
+    { id: "workflow-clients", title: "AI 客户端", done: registered > 0 },
+  ];
+  const currentWorkflowStep = workflow.findIndex((item) => !item.done);
 
   return (
     <div className="page">
@@ -118,6 +125,24 @@ export function Dashboard({ onOpenClients, onRunSetup }: Props) {
           {server.error}
         </div>
       )}
+
+      <section className="workflow-overview" aria-label="接入进度">
+        <div className="workflow-overview-head">
+          <div>
+            <h2>接入流程</h2>
+            <p>{currentWorkflowStep < 0 ? "基础连接已配置，可在 AI 客户端的新对话中调用 COMSOL 工具。" : `下一步：${workflow[currentWorkflowStep].title}`}</p>
+          </div>
+          <span className="workflow-count">{workflow.filter((item) => item.done).length} / {workflow.length}</span>
+        </div>
+        <div className="workflow-track">
+          {workflow.map((item, index) => (
+            <button key={item.id} className={`workflow-step ${item.done ? "is-done" : index === currentWorkflowStep ? "is-current" : ""}`} onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
+              <span className="workflow-step-number">{item.done ? <CheckCircle2 size={16} /> : index + 1}</span>
+              <span className="workflow-step-copy"><strong>{item.title}</strong><small>{item.done ? "已完成" : index === currentWorkflowStep ? "当前步骤" : "待处理"}</small></span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <div className="card-grid">
         <ComsolCard
@@ -164,7 +189,7 @@ function ComsolCard({
   onPick: () => void;
 }) {
   return (
-    <div className="card">
+    <div className="card" id="workflow-comsol">
       <h2 className="card-title">
         COMSOL 安装
         {comsol.found ? (
@@ -230,7 +255,7 @@ function EnvironmentCard({
   onRunSetup: () => void;
 }) {
   return (
-    <div className="card">
+    <div className="card" id="workflow-runtime">
       <h2 className="card-title">
         运行环境
         {deps.ready ? (
@@ -315,7 +340,7 @@ function ServerCard({
   const { running, starting } = server;
 
   return (
-    <div className="card">
+    <div className="card" id="workflow-server">
       <h2 className="card-title">
         COMSOL 服务端
         <span className={`badge ${running ? "badge-ok" : starting ? "badge-accent" : "badge-muted"}`}>
@@ -401,7 +426,7 @@ function ClientsCard({
   onOpen: () => void;
 }) {
   return (
-    <div className="card">
+    <div className="card" id="workflow-clients">
       <h2 className="card-title">
         AI 客户端
         <Plug size={15} strokeWidth={1.75} color="var(--ink-muted)" />

@@ -140,6 +140,17 @@ export interface McpClient {
   detail?: string | null;
 }
 
+export interface ClientConfigProfile {
+  id: string;
+  label: string;
+  kind: "json_mcp_servers" | "opencode" | "codex_toml";
+  path: string;
+  core_root: string;
+  python_exe: string;
+  port: number;
+  entry: Record<string, unknown>;
+}
+
 export interface ServerStatus {
   running: boolean;
   starting: boolean;
@@ -251,6 +262,10 @@ export function useEnvironment(path: string): Promise<{ ok: boolean; environment
 
 export function listClients(): Promise<McpClient[]> {
   return request<McpClient[]>("/api/clients");
+}
+
+export function getClientConfig(clientId: string): Promise<ClientConfigProfile> {
+  return request<ClientConfigProfile>(`/api/clients/${encodeURIComponent(clientId)}/config`);
 }
 
 export function registerClients(ids: string[]): Promise<ClientsResponse> {

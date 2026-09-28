@@ -8,6 +8,7 @@ vite.config.ts.timestamp-*.mjs
 # Electron
 dist-electron/
 release/
+release-*/
 
 # Rust / Tauri
 src-tauri/target/

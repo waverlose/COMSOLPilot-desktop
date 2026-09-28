@@ -257,9 +257,10 @@ export function DependencyStep({ onNext, onBack }: Props) {
                 </button>
               )}
             </div>
-            <button className="btn btn-primary" onClick={onNext} disabled={!ok}>
-              下一步
-            </button>
+            <div className="step-actions-left">
+              {!ok && <button className="btn btn-text" onClick={onNext}>稍后配置</button>}
+              <button className="btn btn-primary" onClick={onNext} disabled={!ok}>下一步</button>
+            </div>
           </div>
         </>
       )}

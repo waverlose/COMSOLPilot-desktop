@@ -20,7 +20,7 @@ import { createConnection, createServer } from "node:net";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { BrowserWindow, Menu, app, dialog, ipcMain, net, protocol, shell } from "electron";
+import { BrowserWindow, Menu, Tray, app, dialog, ipcMain, nativeImage, net, protocol, shell } from "electron";
 
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL ?? "http://localhost:5173";
 const FALLBACK_PORT = 8765;
@@ -70,6 +70,8 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
 let sidecarChild: ChildProcess | null = null;
 let sidecarPort = FALLBACK_PORT;
 let sidecarToken = "";
@@ -386,10 +388,10 @@ async function createWindow(): Promise<void> {
   const icon = appIcon();
 
   mainWindow = new BrowserWindow({
-    width: 1080,
-    height: 720,
-    minWidth: 860,
-    minHeight: 600,
+    width: 940,
+    height: 640,
+    minWidth: 760,
+    minHeight: 520,
     title: APP_NAME,
     backgroundColor: "#f0f0f0",
     show: false,
@@ -405,6 +407,11 @@ async function createWindow(): Promise<void> {
   });
 
   mainWindow.once("ready-to-show", () => mainWindow?.show());
+  mainWindow.on("close", (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    mainWindow?.hide();
+  });
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -444,7 +451,7 @@ function registerIpc(): void {
     BrowserWindow.fromWebContents(event.sender);
 
   ipcMain.handle("window:minimize", (event) => {
-    windowOf(event)?.minimize();
+    windowOf(event)?.hide();
   });
 
   ipcMain.handle("window:toggleMaximize", (event) => {
@@ -477,6 +484,28 @@ function registerIpc(): void {
   });
 }
 
+function createTray(): void {
+  if (tray !== null) return;
+  const iconPath = appIcon();
+  if (!iconPath) return;
+  const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  tray = new Tray(icon);
+  tray.setToolTip("COMSOLPilot");
+  const showWindow = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  };
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: "打开 COMSOLPilot", click: showWindow },
+    { type: "separator" },
+    { label: "退出 COMSOLPilot", click: () => { isQuitting = true; app.quit(); } },
+  ]));
+  tray.on("click", showWindow);
+  tray.on("double-click", showWindow);
+}
+
 // ---------------------------------------------------------------------------
 // 生命周期
 // ---------------------------------------------------------------------------
@@ -488,6 +517,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on("second-instance", () => {
     if (mainWindow === null) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
     mainWindow.focus();
   });
 
@@ -499,6 +529,7 @@ if (!app.requestSingleInstanceLock()) {
 
     registerIpc();
     registerAppProtocol();
+    createTray();
     await startSidecar();
     await createWindow();
 
@@ -508,9 +539,10 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") app.quit();
+    // Keep the tray process and MCP sidecar alive while the window is hidden.
   });
 
+  app.on("before-quit", () => { isQuitting = true; });
   app.on("before-quit", stopSidecar);
   app.on("will-quit", stopSidecar);
 }
