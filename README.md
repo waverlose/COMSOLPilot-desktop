@@ -46,3 +46,8 @@ COMSOLPilot Desktop 使用 [COMSOLPilot](https://github.com/waverlose/COMSOLPilo
 ## 反馈
 
 欢迎在 [Issues](https://github.com/waverlose/COMSOLPilot-desktop/issues) 提交问题和使用建议。
+
+## 最后
+
+可以提交反馈，我将尽快完善
+
