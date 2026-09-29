@@ -5,6 +5,8 @@
  * `package.json` 的 `version` 是唯一真源，其余清单由本脚本派生：
  *   * `src-tauri/tauri.conf.json` → `version`（决定安装包文件名与升级比对）
  *   * `src-tauri/Cargo.toml`      → `[package] version`（决定 exe 的文件属性）
+ *   * `core/pyproject.toml` and `core/src/__init__.py` → core package version
+ *   * `python-sidecar/sidecar_server.py` → HTTP API version
  *
  * `electron-builder.yml` 里的 `${version}` 直接读 package.json，不需要同步。
  *
@@ -13,7 +15,7 @@
  * CI 里跑 `--check` 可以在打包前就拦住。
  *
  * 用法：
- *   node scripts/sync-version.mjs           写入：把两处清单对齐到 package.json
+ *   node scripts/sync-version.mjs           写入：把所有清单对齐到 package.json
  *   node scripts/sync-version.mjs --check   只校验：不一致则退出码 1（CI 用）
  */
 import { readFileSync, writeFileSync } from "node:fs";
@@ -26,6 +28,9 @@ const CHECK = process.argv.includes("--check");
 const PKG = join(ROOT, "package.json");
 const TAURI_CONF = join(ROOT, "src-tauri", "tauri.conf.json");
 const CARGO_TOML = join(ROOT, "src-tauri", "Cargo.toml");
+const CORE_PYPROJECT = join(ROOT, "core", "pyproject.toml");
+const CORE_INIT = join(ROOT, "core", "src", "__init__.py");
+const SIDECAR_SERVER = join(ROOT, "python-sidecar", "sidecar_server.py");
 
 const version = JSON.parse(readFileSync(PKG, "utf-8")).version;
 if (typeof version !== "string" || version.trim() === "") {
@@ -93,6 +98,47 @@ const stale = [];
 }
 
 // ---------------------------------------------------------------------------
+// Core and sidecar runtime versions
+// ---------------------------------------------------------------------------
+// The desktop diagnostics page reads the core package version, while API
+// clients see the sidecar version. Keep both derived from package.json too.
+function syncTextVersion(path, pattern, replacement, label) {
+  const raw = readFileSync(path, "utf-8");
+  const match = raw.match(pattern);
+  if (match === null) {
+    console.error(`[version] ${label} 里找不到版本号`);
+    process.exit(1);
+  }
+  const current = match[1];
+  if (current === version) return;
+  if (CHECK) {
+    stale.push(`${label}  version = ${current}`);
+    return;
+  }
+  writeFileSync(path, raw.replace(pattern, replacement), "utf-8");
+  changed.push(`${label}  ${current} → ${version}`);
+}
+
+syncTextVersion(
+  CORE_PYPROJECT,
+  /^version\s*=\s*"([^"]*)"/m,
+  `version = "${version}"`,
+  "core/pyproject.toml",
+);
+syncTextVersion(
+  CORE_INIT,
+  /^__version__\s*=\s*"([^"]*)"/m,
+  `__version__ = "${version}"`,
+  "core/src/__init__.py",
+);
+syncTextVersion(
+  SIDECAR_SERVER,
+  /version="([^"]*)"/,
+  `version="${version}"`,
+  "python-sidecar/sidecar_server.py",
+);
+
+// ---------------------------------------------------------------------------
 // 结果
 // ---------------------------------------------------------------------------
 if (CHECK) {
@@ -102,7 +148,7 @@ if (CHECK) {
     console.error("[version] 执行 npm run version:sync 对齐后再打包。");
     process.exit(1);
   }
-  console.log(`[version] 三处清单一致：${version}`);
+  console.log(`[version] 所有版本清单一致：${version}`);
   process.exit(0);
 }
 
