@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
@@ -145,6 +147,47 @@ def state():
     }
 
 
+@app.get("/api/diagnostics")
+def diagnostics():
+    """Return a single, actionable readiness report for the desktop UI."""
+    comsol = comsol_locator.quick_info()
+    deps = deps_installer.status()
+    server = server_manager.status()
+    clients = mcp_clients.list_clients()
+    registered = sum(1 for client in clients if client.registered)
+    checks = [
+        {
+            "id": "comsol",
+            "label": "COMSOL 安装",
+            "ok": bool(comsol.found),
+            "detail": f"COMSOL {comsol.version}" if comsol.found else "未找到 COMSOL",
+            "value": comsol.path or "",
+        },
+        {
+            "id": "python",
+            "label": "Python 环境",
+            "ok": bool(deps.ready),
+            "detail": "依赖已就绪" if deps.ready else (f"缺少依赖: {', '.join(deps.missing)}" if deps.missing else "尚未配置环境"),
+            "value": deps.interpreter or "",
+        },
+        {
+            "id": "server",
+            "label": "COMSOL Server",
+            "ok": bool(server.running),
+            "detail": "服务运行中" if server.running else (server.error or "服务未运行"),
+            "value": f"端口 {server.port}",
+        },
+        {
+            "id": "clients",
+            "label": "AI 客户端",
+            "ok": registered > 0,
+            "detail": f"已接入 {registered} 个客户端" if registered else "尚未接入客户端",
+            "value": str(registered),
+        },
+    ]
+    return {"ok": all(item["ok"] for item in checks), "checks": checks}
+
+
 def _settings_payload() -> dict:
     settings = paths.read_json(paths.settings_path())
     return {
@@ -252,6 +295,58 @@ def get_client_config(client_id: str):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/clients/{client_id}/test")
+def test_client(client_id: str):
+    """Start the configured MCP entry once and report its advertised tools."""
+    try:
+        profile = mcp_clients.config_profile(client_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    python_exe = str(profile.get("python_exe") or sys.executable)
+    root = str(profile.get("core_root") or paths.core_root())
+    port = int(profile.get("port") or server_manager.resolved_port())
+    probe = (
+        "import json\n"
+        "from src.server import mcp, register_all_tools\n"
+        "register_all_tools()\n"
+        "print(json.dumps(sorted(mcp._tool_manager._tools.keys()), ensure_ascii=False))\n"
+    )
+    env = os.environ.copy()
+    env.update({
+        "COMSOL_MODE": "gui",
+        "COMSOL_HOST": "localhost",
+        "COMSOL_PORT": str(port),
+        "COMSOL_PREWARM": "off",
+        "PYTHONPATH": root,
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
+    })
+    try:
+        completed = subprocess.run(
+            [python_exe, "-c", probe], cwd=root, env=env,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=15, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"ok": False, "client": client_id, "tools": [], "error": str(exc)}
+    output = completed.stdout.strip().splitlines()
+    try:
+        tools = json.loads(output[-1]) if output else []
+    except json.JSONDecodeError:
+        tools = []
+    ok = completed.returncode == 0 and isinstance(tools, list)
+    return {
+        "ok": ok,
+        "client": client_id,
+        "tools": tools if ok else [],
+        "tool_count": len(tools) if ok else 0,
+        "error": None if ok else (completed.stderr.strip()[-1200:] or "MCP 进程未能完成初始化"),
+    }
 
 
 @app.post("/api/clients/register")

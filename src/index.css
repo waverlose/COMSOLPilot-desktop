@@ -1056,6 +1056,7 @@ button {
    ========================================================================== */
 
 .field {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1067,12 +1068,25 @@ button {
   color: var(--ink);
 }
 
+.field-label::after { content: "?"; display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; margin-left: 5px; border: 1px solid var(--border-strong); border-radius: 50%; color: var(--ink-muted); font-size: 10px; cursor: help; }
+
 .field-hint {
-  font-size: 11.5px;
+  display: none;
+  position: absolute;
+  z-index: 20;
+  top: 22px;
+  left: 0;
+  max-width: 360px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-strong);
+  background: #fff;
   color: var(--ink-muted);
+  font-size: 11.5px;
   line-height: 1.55;
-  max-width: 460px;
+  box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.14);
 }
+.field-label:hover ~ .field-hint,
+.field-label:focus ~ .field-hint { display: block; }
 
 .field-row {
   display: grid;
@@ -1268,6 +1282,8 @@ button {
   margin-bottom: 8px;
 }
 
+.log-toolbar-actions { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; justify-content: flex-end; }
+
 .log-file {
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -1275,6 +1291,8 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  max-width: min(52vw, 560px);
 }
 
 .log-panel {
@@ -1755,6 +1773,58 @@ body { background: #f7f8fa; font-size: 13px; }
 .client-block-heading > span { display: inline-flex; align-items: center; gap: 6px; }
 .client-path-block code { display: block; overflow: auto; color: var(--ink); font-family: var(--font-mono); font-size: 11px; white-space: nowrap; }
 .btn-sm { min-height: 26px; padding: 3px 8px; font-size: 11px; }
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(20, 25, 30, 0.28);
+}
+
+.dialog {
+  width: min(620px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+}
+
+.dialog-header,
+.dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.dialog-header h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; }
+.dialog-header p { margin: 3px 0 0; color: var(--ink-muted); }
+.dialog-footer { justify-content: flex-end; border-top: 1px solid var(--border-soft); border-bottom: 0; }
+.diagnostics-list { padding: 6px 16px; }
+.diagnostic-row { display: flex; align-items: center; gap: 10px; min-height: 62px; border-bottom: 1px solid var(--border-soft); }
+.diagnostic-row:last-child { border-bottom: 0; }
+.diagnostic-row.is-ok > svg { color: var(--success); }
+.diagnostic-row.is-fail > svg { color: var(--danger); }
+.diagnostic-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 1px; }
+.diagnostic-copy strong { font-weight: 600; }
+.diagnostic-copy span { color: var(--ink-muted); }
+.diagnostic-copy code { overflow: hidden; color: var(--ink-faint); font: 11px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.server-stage { margin: 12px 0 -6px; color: var(--accent); font-size: 11px; }
+
+/* 首页聚焦服务启动；详细配置仍从设置和诊断进入。 */
+.home-status-strip { display: flex; align-items: center; gap: 18px; margin: 0 0 14px; padding: 9px 12px; border: 1px solid var(--border-soft); background: var(--sunken); }
+.home-status-strip span { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-muted); white-space: nowrap; }
+.home-status-strip i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); }
+.home-status-strip .is-ready i { background: var(--success); }
+.home-status-strip .is-missing i { background: var(--warn); }
+.home-status-strip .btn { margin-left: auto; }
+.dashboard-page > .card-grid { grid-template-columns: minmax(0, 760px); }
+.dashboard-page > .workflow-overview { display: none; }
+.dashboard-page > .card-grid .card:not(#workflow-server) { display: none; }
 .connection-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin: 14px 0; padding: 11px 12px; border-top: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft); }
 .connection-facts > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .connection-facts span { color: var(--ink-faint); font-size: 10px; }
@@ -1763,6 +1833,13 @@ body { background: #f7f8fa; font-size: 13px; }
 .config-preview { max-height: 170px; margin: 0; padding: 12px; overflow: auto; border: 1px solid var(--border); border-radius: 5px; background: #f7f8fa; color: #273142; font-family: var(--font-mono); font-size: 10.5px; line-height: 1.55; }
 .client-setup-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .client-setup-note { margin: 12px 0 0; color: var(--ink-muted); font-size: 11px; line-height: 1.6; }
+.client-test-result { margin-top: 12px; padding: 9px 10px; border: 1px solid var(--border-soft); background: var(--sunken); }
+.client-test-result.is-ok { border-left: 3px solid var(--success); }
+.client-test-result.is-fail { border-left: 3px solid var(--danger); }
+.client-test-result strong { display: block; margin-bottom: 6px; }
+.client-test-result p { margin: 0; color: var(--danger); white-space: pre-wrap; }
+.client-tool-list { display: flex; flex-wrap: wrap; gap: 5px; max-height: 130px; overflow-y: auto; }
+.client-tool-list code { padding: 2px 5px; border: 1px solid var(--border-soft); background: var(--surface); color: var(--ink-muted); font: 10.5px var(--font-mono); }
 .workspace-header { -webkit-app-region: drag; user-select: none; }
 .workspace-header button, .workspace-header .header-connection { -webkit-app-region: no-drag; }
 .setup-backdrop { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(23, 27, 33, .28); backdrop-filter: blur(2px); }

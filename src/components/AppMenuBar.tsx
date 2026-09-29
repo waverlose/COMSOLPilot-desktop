@@ -83,7 +83,7 @@ export function AppMenuBar({ actions, showMessages, onToggleMessages }: Props) {
       label: "视图",
       entries: [
         { label: "概览", run: () => actions.navigate("dashboard") },
-        { label: "AI 客户端", run: () => actions.navigate("clients") },
+        { label: "客户端", run: () => actions.navigate("clients") },
         { label: "设置", run: () => actions.navigate("settings") },
         { label: "消息与日志", run: () => actions.navigate("logs") },
         { divider: true },

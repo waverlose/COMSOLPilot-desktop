@@ -245,12 +245,9 @@ def _sync_json(target: Target, path: Path, port: int, ensure: bool,
     if not isinstance(section, dict):
         return {**result, "action": "skipped", "reason": "no mcpServers/mcp object"}
 
+    # Only own the explicit comsolpilot key. Other MCP entries may mention
+    # COMSOL for their own purposes and must never be rewritten.
     existing_name = ENTRY_NAME if isinstance(section.get(ENTRY_NAME), dict) else None
-    if existing_name is None:
-        for name, spec in section.items():
-            if _is_comsol_entry(str(name), spec):
-                existing_name = str(name)
-                break
 
     if existing_name is not None:
         spec = section[existing_name]

@@ -151,6 +151,14 @@ export interface ClientConfigProfile {
   entry: Record<string, unknown>;
 }
 
+export interface ClientTestResult {
+  ok: boolean;
+  client: string;
+  tools: string[];
+  tool_count: number;
+  error?: string | null;
+}
+
 export interface ServerStatus {
   running: boolean;
   starting: boolean;
@@ -219,12 +227,29 @@ export interface LogTail {
   lines: string[];
 }
 
+export interface DiagnosticCheck {
+  id: "comsol" | "python" | "server" | "clients";
+  label: string;
+  ok: boolean;
+  detail: string;
+  value: string;
+}
+
+export interface DiagnosticsResponse {
+  ok: boolean;
+  checks: DiagnosticCheck[];
+}
+
 // ---------------------------------------------------------------------------
 // 接口
 // ---------------------------------------------------------------------------
 
 export function getState(): Promise<AppState> {
   return request<AppState>("/api/state");
+}
+
+export function getDiagnostics(): Promise<DiagnosticsResponse> {
+  return request<DiagnosticsResponse>("/api/diagnostics");
 }
 
 export function detectComsol(): Promise<ComsolInfo> {
@@ -266,6 +291,10 @@ export function listClients(): Promise<McpClient[]> {
 
 export function getClientConfig(clientId: string): Promise<ClientConfigProfile> {
   return request<ClientConfigProfile>(`/api/clients/${encodeURIComponent(clientId)}/config`);
+}
+
+export function testClient(clientId: string): Promise<ClientTestResult> {
+  return post<ClientTestResult>(`/api/clients/${encodeURIComponent(clientId)}/test`);
 }
 
 export function registerClients(ids: string[]): Promise<ClientsResponse> {

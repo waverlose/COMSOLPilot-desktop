@@ -136,7 +136,7 @@ export function Ribbon({
           ],
         },
         {
-          label: "AI 客户端",
+          label: "客户端",
           buttons: [{ label: "管理客户端", icon: Plug, onClick: () => actions.navigate("clients") }],
         },
       ],
@@ -148,7 +148,7 @@ export function Ribbon({
           label: "窗口",
           buttons: [
             { label: "概览", icon: LayoutGrid, onClick: () => actions.navigate("dashboard") },
-            { label: "AI 客户端", icon: Plug, onClick: () => actions.navigate("clients") },
+            { label: "客户端", icon: Plug, onClick: () => actions.navigate("clients") },
             { label: "设置", icon: Settings2, onClick: () => actions.navigate("settings") },
             { label: "消息与日志", icon: ScrollText, onClick: () => actions.navigate("logs") },
           ],

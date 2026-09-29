@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  ArrowRight,
   AlertTriangle,
   CheckCircle2,
   FolderSearch,
@@ -11,10 +12,12 @@ import {
   RotateCw,
   Server,
   Square,
+  Stethoscope,
   XCircle,
 } from "lucide-react";
 import {
   detectComsol,
+  getDiagnostics,
   pickDirectory,
   restartServer,
   setComsolPath,
@@ -22,6 +25,7 @@ import {
   stopServer,
   type AppState,
   type ComsolInfo,
+  type DiagnosticsResponse,
   type ServerStatus,
 } from "../lib/api";
 import { refreshState, useAppState } from "../lib/appState";
@@ -39,6 +43,19 @@ export function Dashboard({ onOpenClients, onRunSetup }: Props) {
   const [detecting, setDetecting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"headless" | "gui">("gui");
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsResponse | null>(null);
+  const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
+
+  async function openDiagnostics() {
+    setDiagnosticsBusy(true);
+    try {
+      setDiagnostics(await getDiagnostics());
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDiagnosticsBusy(false);
+    }
+  }
 
   const fatal = actionError ?? linkError;
 
@@ -97,19 +114,21 @@ export function Dashboard({ onOpenClients, onRunSetup }: Props) {
     { id: "workflow-comsol", title: "COMSOL 安装", done: comsol.found },
     { id: "workflow-runtime", title: "运行环境", done: deps.ready },
     { id: "workflow-server", title: "COMSOL Server", done: server.running },
-    { id: "workflow-clients", title: "AI 客户端", done: registered > 0 },
+    { id: "workflow-clients", title: "客户端", done: registered > 0 },
   ];
   const currentWorkflowStep = workflow.findIndex((item) => !item.done);
 
   return (
-    <div className="page">
+    <div className="page dashboard-page">
       <div className="page-header">
         <div>
           <h1 className="page-title">概览</h1>
-          <p className="page-subtitle">COMSOL、运行环境与 AI 客户端的当前状态。</p>
         </div>
         <button className="btn btn-ghost" onClick={() => void refreshState()}>
           <RefreshCw size={15} /> 刷新
+        </button>
+        <button className="btn btn-secondary" onClick={() => void openDiagnostics()} disabled={diagnosticsBusy}>
+          {diagnosticsBusy ? <Loader2 className="spin" size={15} /> : <Stethoscope size={15} />} 连接诊断
         </button>
       </div>
 
@@ -127,11 +146,18 @@ export function Dashboard({ onOpenClients, onRunSetup }: Props) {
         </div>
       )}
 
+      <section className="home-status-strip" aria-label="连接状态">
+        <span className={comsol.found ? "is-ready" : "is-missing"}><i /> COMSOL {comsol.found ? "已识别" : "未配置"}</span>
+        <span className={deps.ready ? "is-ready" : "is-missing"}><i /> Python 环境 {deps.ready ? "已就绪" : "待配置"}</span>
+        <span className={registered > 0 ? "is-ready" : "is-muted"}><i /> 客户端 {registered > 0 ? `${registered} 个已接入` : "未接入"}</span>
+        <button className="btn btn-ghost btn-sm" onClick={() => void openDiagnostics()}><Stethoscope size={13} /> 检查连接</button>
+      </section>
+
       <section className="workflow-overview" aria-label="接入进度">
         <div className="workflow-overview-head">
           <div>
             <h2>接入流程</h2>
-            <p>{currentWorkflowStep < 0 ? "基础连接已配置，可在 AI 客户端的新对话中调用 COMSOL 工具。" : `下一步：${workflow[currentWorkflowStep].title}`}</p>
+            <p>{currentWorkflowStep < 0 ? "基础连接已配置，可在客户端的新对话中调用 COMSOL 工具。" : `下一步：${workflow[currentWorkflowStep].title}`}</p>
           </div>
           <span className="workflow-count">{workflow.filter((item) => item.done).length} / {workflow.length}</span>
         </div>
@@ -173,11 +199,25 @@ export function Dashboard({ onOpenClients, onRunSetup }: Props) {
           onOpen={onOpenClients}
         />
       </div>
+      {diagnostics && <DiagnosticsDialog report={diagnostics} busy={diagnosticsBusy} onRefresh={() => void openDiagnostics()} onClose={() => setDiagnostics(null)} onSetup={onRunSetup} onClients={onOpenClients} />}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
+
+function DiagnosticsDialog({ report, busy, onRefresh, onClose, onSetup, onClients }: { report: DiagnosticsResponse; busy: boolean; onRefresh: () => void; onClose: () => void; onSetup: () => void; onClients: () => void }) {
+  const actionFor = (id: string) => id === "python"
+    ? <button className="btn btn-ghost btn-sm" onClick={onSetup}>配置环境 <ArrowRight size={13} /></button>
+    : id === "clients" ? <button className="btn btn-ghost btn-sm" onClick={onClients}>管理客户端 <ArrowRight size={13} /></button> : null;
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
+    <section className="dialog diagnostics-dialog" role="dialog" aria-modal="true" aria-labelledby="diagnostics-title">
+      <div className="dialog-header"><div><h2 id="diagnostics-title"><Stethoscope size={18} /> 连接诊断</h2><p>{report.ok ? "所有基础连接均已就绪" : "发现需要处理的项目"}</p></div><button className="btn btn-ghost btn-sm" onClick={onClose}>关闭</button></div>
+      <div className="diagnostics-list">{report.checks.map((check) => <div className={`diagnostic-row ${check.ok ? "is-ok" : "is-fail"}`} key={check.id}>{check.ok ? <CheckCircle2 size={17} /> : <XCircle size={17} />}<div className="diagnostic-copy"><strong>{check.label}</strong><span>{check.detail}</span>{check.value && <code>{check.value}</code>}</div>{actionFor(check.id)}</div>)}</div>
+      <div className="dialog-footer"><button className="btn btn-secondary" onClick={onRefresh} disabled={busy}>{busy ? <Loader2 className="spin" size={14} /> : <RefreshCw size={14} />} 重新检查</button><button className="btn btn-ghost" onClick={onClose}>完成</button></div>
+    </section>
+  </div>;
+}
 
 function ComsolCard({
   comsol,
@@ -322,6 +362,13 @@ function EnvironmentCard({
 
 // ---------------------------------------------------------------------------
 
+function startupStage(server: ServerStatus): string {
+  const text = server.log_tail.join(" ").toLowerCase();
+  if (text.includes("desktop") || text.includes("gui")) return "正在打开 COMSOL 桌面";
+  if (text.includes("listening") || text.includes("started")) return "服务已监听，正在确认连接";
+  return "正在启动 COMSOL JVM";
+}
+
 function ServerCard({
   server,
   mode,
@@ -372,6 +419,7 @@ function ServerCard({
         ) : null}
       </div>
 
+      {starting && <p className="server-stage"><strong>{startupStage(server)}</strong></p>}
       {starting && (
         <p className="hint" style={{ marginTop: 12 }}>
           JVM 启动通常需要 30-60 秒，请稍候。进度见「日志」页。
@@ -435,7 +483,7 @@ function ClientsCard({
   return (
     <div className="card" id="workflow-clients">
       <h2 className="card-title">
-        AI 客户端
+        客户端
         <Plug size={15} strokeWidth={1.75} color="var(--ink-muted)" />
       </h2>
 
@@ -454,7 +502,7 @@ function ClientsCard({
 
       <p className="hint" style={{ marginTop: 12 }}>
         {registered === 0
-          ? "还没有接入任何 AI 客户端。接入后，在客户端里对话就能直接驱动 COMSOL。"
+          ? "还没有接入客户端。接入后，在客户端里对话就能直接驱动 COMSOL。"
           : "新增或调整接入的客户端，改动会立刻写入对应的配置文件。"}
       </p>
 

@@ -58,9 +58,6 @@ export function LogsPage({ refreshKey = 0 }: { refreshKey?: number }) {
       <div className="page-header">
         <div>
           <h1 className="page-title">日志</h1>
-          <p className="page-subtitle">
-            本地服务的实时输出，以及 COMSOL 服务端自己写的启动日志。
-          </p>
         </div>
       </div>
 
@@ -80,7 +77,7 @@ export function LogsPage({ refreshKey = 0 }: { refreshKey?: number }) {
           </button>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+        <div className="log-toolbar-actions">
           {source === "comsol" && comsolFile && (
             <span className="log-file" title={comsolFile}>
               {comsolFile}

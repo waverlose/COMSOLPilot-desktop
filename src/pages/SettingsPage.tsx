@@ -119,9 +119,6 @@ export function SettingsPage({ refreshKey = 0, onOpenSetup }: { refreshKey?: num
       <div className="page-header">
         <div>
           <h1 className="page-title">设置</h1>
-          <p className="page-subtitle">
-            这些值保存在 core/workspace/settings.json，启动脚本与 MCP 客户端都会读取。
-          </p>
         </div>
         {onOpenSetup && <button className="btn btn-ghost" onClick={onOpenSetup}>重新开始引导</button>}
       </div>

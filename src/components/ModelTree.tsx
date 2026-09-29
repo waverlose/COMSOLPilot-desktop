@@ -43,7 +43,7 @@ export const TREE: TreeNodeDef[] = [
   { id: "comsol", label: "COMSOL 安装", view: "dashboard", icon: Boxes },
   { id: "runtime", label: "运行环境", view: "dashboard", icon: Cpu },
   { id: "server", label: "服务端", view: "dashboard", icon: Server },
-  { id: "clients", label: "AI 客户端", view: "clients", icon: Plug },
+  { id: "clients", label: "客户端", view: "clients", icon: Plug },
   { id: "logs", label: "消息与日志", view: "logs", icon: ScrollText },
 ];
 

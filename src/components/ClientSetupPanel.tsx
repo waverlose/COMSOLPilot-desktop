@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bot, Check, Clipboard, ClipboardCheck, FileText, FolderOpen, Loader2 } from "lucide-react";
-import { getClientConfig, listClients, revealDirectory, type ClientConfigProfile, type McpClient } from "../lib/api";
+import { Check, Clipboard, ClipboardCheck, FileText, FolderOpen, Loader2 } from "lucide-react";
+import { getClientConfig, listClients, registerClients, revealDirectory, testClient, type ClientConfigProfile, type McpClient, type ClientTestResult } from "../lib/api";
 import { useAppState } from "../lib/appState";
 
 interface Props {
@@ -35,6 +35,9 @@ export function ClientSetupPanel({ mode, onNext, onBack, refreshKey = 0 }: Props
   const [profileLoading, setProfileLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [writing, setWriting] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<ClientTestResult | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -96,20 +99,46 @@ export function ClientSetupPanel({ mode, onNext, onBack, refreshKey = 0 }: Props
     }
   }
 
+  async function writeConfig() {
+    if (!profile) return;
+    setWriting(true);
+    setError(null);
+    try {
+      await registerClients([profile.id]);
+      const items = await listClients();
+      setClients(items);
+      setCopied("written");
+      window.setTimeout(() => setCopied((current) => current === "written" ? null : current), 1800);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setWriting(false);
+    }
+  }
+
+  async function runTest() {
+    if (!profile) return;
+    setTesting(true);
+    setTestResult(null);
+    try { setTestResult(await testClient(profile.id)); }
+    catch (err) { setTestResult({ ok: false, client: profile.id, tools: [], tool_count: 0, error: err instanceof Error ? err.message : String(err) }); }
+    finally { setTesting(false); }
+  }
+
   const aiPrompt = profile
     ? `请帮我把 COMSOLPilot MCP 接入 ${profile.label}。请先备份目标配置文件，再将以下配置合并进去；只新增或更新 comsolpilot 这一项，保留其他配置。不要改变其中的 Python、核心目录、环境变量和端口。\n\n配置文件：\n${profile.path}\n\n配置片段：\n${configText}\n\n完成后告诉我如何重启/启用该连接器。`
     : "";
+  void aiPrompt;
 
   return (
     <div className={isWizard ? "step-body client-setup-wizard" : "client-setup-page"}>
       {isWizard ? (
         <>
-          <h2 className="step-title-sm">准备 AI 客户端配置</h2>
-          <p className="step-subtitle">选择你使用的客户端，复制配置片段和文件路径。COMSOLPilot 不会直接修改其他软件的配置。</p>
+          <h2 className="step-title-sm">准备客户端配置</h2>
         </>
       ) : (
         <div className="page-header client-setup-heading">
-          <div><h1 className="page-title">AI 客户端连接</h1><p className="page-subtitle">查看专属配置路径与连接片段，复制后自行添加或交给 AI 帮你配置。</p></div>
+          <div><h1 className="page-title">客户端连接</h1></div>
           <button className="btn btn-ghost" onClick={() => void listClients().then(setClients)}><Clipboard size={15} />重新扫描</button>
         </div>
       )}
@@ -154,9 +183,12 @@ export function ClientSetupPanel({ mode, onNext, onBack, refreshKey = 0 }: Props
                 <pre className="config-preview"><code>{configText}</code></pre>
 
                 <div className="client-setup-actions">
-                  <button className="btn btn-secondary" onClick={() => void copy("ai", aiPrompt)}><Bot size={15} />{copied === "ai" ? "已复制给 AI" : "复制给 AI 帮我配置"}</button>
+                  <button className="btn btn-primary" onClick={() => void writeConfig()} disabled={writing}>{writing ? <Loader2 className="spin" size={15} /> : <FileText size={15} />}{copied === "written" ? "已写入配置" : "直接写入配置"}</button>
+                  <button className="btn btn-secondary" onClick={() => void copy("config", configText)}><Clipboard size={15} />复制配置</button>
+                  <button className="btn btn-ghost" onClick={() => void runTest()} disabled={testing}>{testing ? <Loader2 className="spin" size={15} /> : <Check size={15} />}{testing ? "测试中" : "测试连接"}</button>
                   {clients.find((client) => client.id === profile.id)?.detected && <button className="btn btn-ghost" onClick={() => void revealConfigFolder()}><FolderOpen size={15} />打开配置目录</button>}
                 </div>
+                {testResult && <div className={`client-test-result ${testResult.ok ? "is-ok" : "is-fail"}`}><strong>{testResult.ok ? `连接成功 · 已发现 ${testResult.tool_count} 个工具` : "连接失败"}</strong>{testResult.ok ? <div className="client-tool-list">{testResult.tools.map((tool) => <code key={tool}>{tool}</code>)}</div> : <p>{testResult.error}</p>}</div>}
                 <p className="client-setup-note">配置添加后，重启或重新载入该 AI 客户端并新建对话。使用工具前，请先在主页启动 COMSOL Server。</p>
               </>
             )}

@@ -93,7 +93,7 @@ export default function App() {
 
   const navItems: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
     { id: "dashboard", label: "概览", icon: LayoutDashboard },
-    { id: "clients", label: "AI 客户端", icon: Plug },
+    { id: "clients", label: "客户端", icon: Plug },
     { id: "logs", label: "运行日志", icon: ScrollText },
     { id: "settings", label: "设置", icon: Settings2 },
   ];

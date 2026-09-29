@@ -45,7 +45,7 @@ export function StatusBar({ snapshot }: Props) {
 
       <span className="statusbar-spacer" />
 
-      <span className="statusbar-item">AI 客户端 {registered} 已接入</span>
+      <span className="statusbar-item">客户端 {registered} 已接入</span>
       {deps?.core_root && (
         <>
           <span className="statusbar-sep" />
