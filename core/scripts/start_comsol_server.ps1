@@ -355,8 +355,7 @@ function Write-RuntimeState {
 function Start-ComsolDesktop {
     param([string]$DesktopExe, [int]$RealPort)
     if (-not $DesktopExe) {
-        Write-Warning "Could not locate comsol.exe. Open COMSOL Desktop yourself, then use File > COMSOL Multiphysics Server > Connect to Server."
-        return
+        throw "Could not locate comsol.exe. Check the COMSOL installation path in Settings."
     }
     try {
         Remove-DuplicateCaseEnvironmentVariables
@@ -369,7 +368,7 @@ function Start-ComsolDesktop {
         Write-Host ""
     }
     catch {
-        Write-Warning "Failed to launch COMSOL Desktop: $($_.Exception.Message)"
+        throw "Failed to launch COMSOL Desktop at '$DesktopExe': $($_.Exception.Message)"
     }
 }
 
@@ -389,7 +388,6 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $mode = if ($OpenDesktop) { "gui" } else { "headless" }
 
 if (Test-PortListening -HostName "localhost" -PortNumber $Port) {
-    Write-Host "COMSOL Server is already listening on localhost:$Port"
     $owner = 0
     try {
         $connection = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction Stop | Select-Object -First 1
@@ -398,7 +396,33 @@ if (Test-PortListening -HostName "localhost" -PortNumber $Port) {
     catch {
         $owner = 0
     }
-    Complete-Startup -RealPort $Port -ProcessId $owner -ServerExe "" -Mode $mode
+    if ($owner -le 0) {
+        throw "Port $Port is occupied, but its owner could not be verified. Close the conflicting process or choose another port."
+    }
+    $ownerProcess = Get-Process -Id $owner -ErrorAction SilentlyContinue
+    if (-not $ownerProcess -or $ownerProcess.ProcessName -notmatch '^comsolmphserver') {
+        $ownerName = if ($ownerProcess) { $ownerProcess.ProcessName } else { "unknown process" }
+        throw "Port $Port is occupied by '$ownerName', not COMSOL Server. Choose another port or stop the conflicting process."
+    }
+    Write-Host "COMSOL Server is already listening on localhost:$Port (PID $owner)"
+    $existingServerExe = $ServerExe
+    if (-not $existingServerExe) {
+        $settingsPath = Join-Path $root "workspace\settings.json"
+        $runtimePath = Join-Path $root "workspace\runtime.json"
+        foreach ($statePath in @($settingsPath, $runtimePath)) {
+            if (Test-Path -LiteralPath $statePath) {
+                try {
+                    $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+                    if ($state.comsol_server_exe -and (Test-Path -LiteralPath $state.comsol_server_exe)) {
+                        $existingServerExe = $state.comsol_server_exe
+                    } elseif ($state.server_exe -and (Test-Path -LiteralPath $state.server_exe)) {
+                        $existingServerExe = $state.server_exe
+                    }
+                } catch { }
+            }
+        }
+    }
+    Complete-Startup -RealPort $Port -ProcessId $owner -ServerExe $existingServerExe -Mode $mode
     exit 0
 }
 

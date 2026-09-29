@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   FolderSearch,
   Loader2,
+  Monitor,
   Play,
   Plug,
   RefreshCw,
@@ -160,6 +161,7 @@ export function Dashboard({ onOpenClients, onRunSetup }: Props) {
           busy={busy}
           onModeChange={setMode}
           onStart={() => runServerAction(() => startServer(mode))}
+          onOpenDesktop={() => runServerAction(() => startServer("gui"))}
           onStop={() => runServerAction(stopServer)}
           onRestart={() => runServerAction(() => restartServer(mode))}
         />
@@ -326,6 +328,7 @@ function ServerCard({
   busy,
   onModeChange,
   onStart,
+  onOpenDesktop,
   onStop,
   onRestart,
 }: {
@@ -334,6 +337,7 @@ function ServerCard({
   busy: boolean;
   onModeChange: (mode: "headless" | "gui") => void;
   onStart: () => void;
+  onOpenDesktop: () => void;
   onStop: () => void;
   onRestart: () => void;
 }) {
@@ -399,6 +403,9 @@ function ServerCard({
 
         {running && (
           <>
+            <button className="btn btn-primary" onClick={onOpenDesktop} disabled={busy}>
+              <Monitor size={15} /> 打开 COMSOL 桌面
+            </button>
             <button className="btn btn-secondary" onClick={onStop} disabled={busy}>
               <Square size={15} /> 停止
             </button>

@@ -16,6 +16,8 @@ import socket
 import subprocess
 import threading
 import time
+import csv
+import io
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Optional
@@ -64,7 +66,10 @@ def _ps_command(script: Path, args: list[str]) -> list[str]:
         "try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch {}; "
         "try { $OutputEncoding = [Console]::OutputEncoding } catch {}; "
     )
-    invocation = "& " + _ps_quote(script) + "".join(" " + _ps_quote(a) for a in args)
+    invocation = "& " + _ps_quote(script) + "".join(
+        " " + (a if a.startswith("-") and a[1:].isalnum() else _ps_quote(a))
+        for a in args
+    )
     return [
         _powershell(),
         "-NoProfile",
@@ -131,6 +136,66 @@ def port_listening(port: int, host: str = "localhost", timeout: float = 1.0) -> 
         return False
 
 
+def _windows_listener_pid(port: int) -> Optional[int]:
+    if os.name != "nt":
+        return None
+    try:
+        result = subprocess.run(
+            ["netstat", "-ano", "-p", "tcp"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    for line in result.stdout.splitlines():
+        fields = line.split()
+        if len(fields) < 5 or fields[0].upper() != "TCP" or fields[3].upper() != "LISTENING":
+            continue
+        if fields[1].rsplit(":", 1)[-1] != str(port):
+            continue
+        try:
+            return int(fields[-1])
+        except ValueError:
+            continue
+    return None
+
+
+def _windows_process_name(pid: int) -> Optional[str]:
+    try:
+        result = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=2,
+            check=False,
+        )
+        row = next(csv.reader(io.StringIO(result.stdout)), [])
+    except (OSError, subprocess.TimeoutExpired, csv.Error):
+        return None
+    if len(row) < 2 or row[0].startswith("INFO:"):
+        return None
+    try:
+        return row[0] if int(row[1].replace(",", "")) == pid else None
+    except ValueError:
+        return None
+
+
+def _is_comsol_server_listening(port: int) -> bool:
+    if not port_listening(port):
+        return False
+    if os.name != "nt":
+        return True
+    pid = _windows_listener_pid(port)
+    process_name = _windows_process_name(pid) if pid is not None else None
+    return bool(process_name and process_name.casefold().startswith("comsolmphserver"))
+
+
 # ---------------------------------------------------------------------------
 # 状态
 # ---------------------------------------------------------------------------
@@ -150,7 +215,7 @@ def _status_locked() -> dict:
     runtime = paths.read_json(paths.runtime_path())
     runtime_port = runtime.get("port")
     port = runtime_port if isinstance(runtime_port, int) else resolved_port()
-    running = port_listening(port)
+    running = _is_comsol_server_listening(port)
 
     return {
         "running": running,
@@ -231,10 +296,11 @@ def _start_worker(mode: str) -> None:
         _starting = False
         if code != 0:
             _last_error = f"COMSOL 服务端启动失败（退出码 {code}），详见日志"
-            _append_log(f"[error] {_last_error}")
+            message = f"[error] {_last_error}"
         else:
             _last_error = None
-            _append_log("[done] COMSOL 服务端已就绪")
+            message = "[done] COMSOL 服务端已就绪"
+    _append_log(message)
 
 
 def start(mode: str = "headless") -> dict:
@@ -246,7 +312,7 @@ def start(mode: str = "headless") -> dict:
 
     with _lock:
         current = _status_locked()
-        if current["running"]:
+        if current["running"] and mode != "gui":
             return current
         if _starting:
             return current
