@@ -414,6 +414,13 @@ def test_client(client_id: str):
 @app.post("/api/clients/register")
 def register_clients(body: RegisterClientsBody):
     states, results = mcp_clients.register(body.clients)
+    failures = [item for item in results if item.get("action") in {"failed", "skipped"} or item.get("written") is False]
+    if failures:
+        detail = "; ".join(
+            f"{item.get('client', 'client')}: {item.get('reason', 'registration failed')}"
+            for item in failures
+        )
+        raise HTTPException(status_code=409, detail=detail)
     return {"clients": [c.to_dict() for c in states], "results": results}
 
 

@@ -105,7 +105,11 @@ export function ClientSetupPanel({ mode, onNext, onBack, refreshKey = 0 }: Props
     setWriting(true);
     setError(null);
     try {
-      await registerClients([profile.id]);
+      const response = await registerClients([profile.id]);
+      const failed = response.results.find((result) => result.action === "failed" || result.action === "skipped");
+      if (failed) {
+        throw new Error(failed.reason || failed.detail || "写入客户端配置失败");
+      }
       const items = await listClients();
       setClients(items);
       setCopied("written");

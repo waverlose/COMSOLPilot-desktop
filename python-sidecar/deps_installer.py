@@ -436,12 +436,10 @@ def _core_venv_site_packages() -> dict:
 def status(refresh: bool = False) -> dict:
     core_present = (paths.core_root() / "src" / "server.py").is_file()
     environments = discover(refresh=refresh)
-    usable = [item for item in environments if item.usable]
-
     chosen = str(paths.read_json(paths.settings_path()).get("python_exe") or "").strip()
-    current = next((item for item in usable if item.path == chosen), None) or (
-        usable[0] if usable else None
-    )
+    current = next((item for item in environments if item.path == chosen), None)
+    if current is None:
+        current = next((item for item in environments if item.usable), None)
 
     return {
         "core_root": str(paths.core_root()),
@@ -452,16 +450,13 @@ def status(refresh: bool = False) -> dict:
         "interpreter_source": current.source if current else None,
         "interpreter_version": current.version if current else None,
         "packages": current.packages if current else _core_venv_site_packages(),
-        "missing": (
-            []
-            if current
-            else sorted(
-                name for name, ok in _core_venv_site_packages().items() if not ok
-            )
+        "missing": sorted(
+            name for name, ok in (current.packages if current else _core_venv_site_packages()).items()
+            if not ok
         ),
-        "reusable": [item.to_dict() for item in usable],
+        "reusable": [item.to_dict() for item in environments if item.usable],
         "environments": [item.to_dict() for item in environments],
-        "ready": bool(core_present and current),
+        "ready": bool(core_present and current and current.usable),
     }
 
 
@@ -553,6 +548,26 @@ def _ensure_pip(interpreter: Path, root: Path) -> Iterator[str]:
 # 安装
 # ---------------------------------------------------------------------------
 
+def _install_requirements(interpreter: Path, root: Path, requirements: Path) -> Iterator[str]:
+    yield f"[info] installing dependencies into existing environment: {interpreter}"
+    yield from _ensure_pip(interpreter, root)
+    process = _popen(
+        [str(interpreter), "-m", "pip", "install", "--no-cache-dir", "-r", str(requirements)],
+        root,
+    )
+    yield from _stream(process)
+    if process.returncode != 0:
+        yield f"[error] dependency installation failed (exit {process.returncode})"
+        return
+    verified = probe(interpreter)
+    if verified is None or not verified.usable:
+        missing = sorted(name for name, ok in (verified.packages if verified else {}).items() if not ok)
+        yield f"[error] dependency verification failed: {', '.join(missing) or 'unavailable environment'}"
+        return
+    paths.update_settings(python_exe=str(interpreter))
+    yield "[done] repaired environment and verified dependencies"
+
+
 def stream_install(force: bool = False, interpreter: str = "") -> Iterator[str]:
     """逐行产出日志。默认**先复用**；只有找不到能用的环境（或 force）才装。
 
@@ -567,6 +582,13 @@ def stream_install(force: bool = False, interpreter: str = "") -> Iterator[str]:
     yield f"[info] 核心目录：{root}"
 
     requirements = root / "requirements-windows.txt"
+    if not requirements.is_file():
+        yield f"[error] requirements file not found: {requirements}"
+        return
+    selected = probe(Path(interpreter)) if interpreter else None
+    if selected is not None and not selected.usable and not force:
+        yield from _install_requirements(Path(selected.path), root, requirements)
+        return
     if not requirements.is_file():
         yield f"[error] 找不到依赖清单：{requirements}"
         return

@@ -19,10 +19,11 @@ from typing import Iterable, Optional
 
 try:
     import core_bridge
+    import deps_installer
     import paths
     import server_manager
 except ImportError:  # pragma: no cover
-    from . import core_bridge, paths, server_manager  # type: ignore[no-redef]
+    from . import core_bridge, deps_installer, paths, server_manager  # type: ignore[no-redef]
 
 # 核心没装好时前端仍要能渲染出客户端列表，这里只是兜底展示用的
 FALLBACK_CLIENTS: list[tuple[str, str]] = [
@@ -101,6 +102,11 @@ def list_clients() -> list[ClientState]:
 
 def config_profile(client_id: str) -> dict:
     """Return a copy-ready connector profile without modifying client files."""
+    dependency_status = deps_installer.status(refresh=True)
+    if not dependency_status.get("ready"):
+        missing = ", ".join(dependency_status.get("missing") or [])
+        detail = f"Python 环境未就绪，请先安装依赖{(': ' + missing) if missing else ''}"
+        raise RuntimeError(detail)
     module = _targets()
     if module is None:
         raise RuntimeError("核心环境未就绪，请先完成开始引导中的运行环境步骤")
@@ -133,6 +139,11 @@ def config_profile(client_id: str) -> dict:
 
 def register(client_ids: Iterable[str]) -> tuple[list[ClientState], list[dict]]:
     """为选中的客户端创建/更新条目，返回 (最新状态, 逐项结果)。"""
+    dependency_status = deps_installer.status(refresh=True)
+    if not dependency_status.get("ready"):
+        missing = ", ".join(dependency_status.get("missing") or [])
+        reason = f"Python environment is not ready; install dependencies first{(': ' + missing) if missing else ''}"
+        return [], [{"client": key, "action": "failed", "reason": reason} for key in client_ids]
     module = _targets()
     if module is None:
         return _fallback("核心未就绪"), []
