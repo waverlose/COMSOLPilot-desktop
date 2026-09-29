@@ -88,6 +88,6 @@ jobs:
             首次运行前请确认本机已安装 COMSOL Multiphysics；Python 环境可以在
             「设置向导 → 环境依赖」里复用已有的，不必单独准备。
           # 先出草稿，人工确认产物没问题再点发布——比直接发出去再撤回省事
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: --bundles nsis,msi
