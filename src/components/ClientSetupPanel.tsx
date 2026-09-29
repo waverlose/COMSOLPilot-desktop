@@ -77,6 +77,7 @@ export function ClientSetupPanel({ mode, onNext, onBack, refreshKey = 0 }: Props
   }, [selectedId]);
 
   const configText = useMemo(() => profile ? formatConfig(profile) : "", [profile]);
+  const groupedTools = useMemo(() => testResult?.ok ? testResult.groups : [], [testResult]);
 
   async function copy(label: string, value: string) {
     try {
@@ -121,7 +122,7 @@ export function ClientSetupPanel({ mode, onNext, onBack, refreshKey = 0 }: Props
     setTesting(true);
     setTestResult(null);
     try { setTestResult(await testClient(profile.id)); }
-    catch (err) { setTestResult({ ok: false, client: profile.id, tools: [], tool_count: 0, error: err instanceof Error ? err.message : String(err) }); }
+    catch (err) { setTestResult({ ok: false, client: profile.id, tools: [], groups: [], tool_count: 0, error: err instanceof Error ? err.message : String(err) }); }
     finally { setTesting(false); }
   }
 
@@ -188,7 +189,7 @@ export function ClientSetupPanel({ mode, onNext, onBack, refreshKey = 0 }: Props
                   <button className="btn btn-ghost" onClick={() => void runTest()} disabled={testing}>{testing ? <Loader2 className="spin" size={15} /> : <Check size={15} />}{testing ? "测试中" : "测试连接"}</button>
                   {clients.find((client) => client.id === profile.id)?.detected && <button className="btn btn-ghost" onClick={() => void revealConfigFolder()}><FolderOpen size={15} />打开配置目录</button>}
                 </div>
-                {testResult && <div className={`client-test-result ${testResult.ok ? "is-ok" : "is-fail"}`}><strong>{testResult.ok ? `连接成功 · 已发现 ${testResult.tool_count} 个工具` : "连接失败"}</strong>{testResult.ok ? <div className="client-tool-list">{testResult.tools.map((tool) => <code key={tool}>{tool}</code>)}</div> : <p>{testResult.error}</p>}</div>}
+                {testResult && <div className={`client-test-result ${testResult.ok ? "is-ok" : "is-fail"}`}><strong>{testResult.ok ? `连接成功 · ${testResult.tool_count} 个工具` : "连接失败"}</strong>{testResult.ok ? <div className="client-tool-groups">{groupedTools.map((group) => <section className="client-tool-group" key={group.id}><div className="client-tool-group-title"><span>{group.label}</span><small>{group.count}</small></div><div className="client-tool-list">{group.tools.map((tool) => <code key={tool}>{tool}</code>)}</div></section>)}</div> : <p>{testResult.error}</p>}</div>}
                 <p className="client-setup-note">配置添加后，重启或重新载入该 AI 客户端并新建对话。使用工具前，请先在主页启动 COMSOL Server。</p>
               </>
             )}

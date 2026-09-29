@@ -155,6 +155,7 @@ export interface ClientTestResult {
   ok: boolean;
   client: string;
   tools: string[];
+  groups: { id: string; label: string; tools: string[]; count: number }[];
   tool_count: number;
   error?: string | null;
 }
@@ -238,6 +239,7 @@ export interface DiagnosticCheck {
 export interface DiagnosticsResponse {
   ok: boolean;
   checks: DiagnosticCheck[];
+  core?: { version: string; tool_count: number | null; error?: string | null };
 }
 
 // ---------------------------------------------------------------------------

@@ -41,6 +41,7 @@ import server_manager  # noqa: E402
 
 TOKEN: Optional[str] = None
 _uvicorn_server = None
+_core_info_cache: Optional[dict] = None
 
 # 开发态是 vite（localhost:5173）；打包态是 Tauri 的 webview 或 Electron 的自定义协议。
 #
@@ -185,7 +186,62 @@ def diagnostics():
             "value": str(registered),
         },
     ]
-    return {"ok": all(item["ok"] for item in checks), "checks": checks}
+    return {
+        "ok": all(item["ok"] for item in checks),
+        "checks": checks,
+        "core": _core_info(),
+    }
+
+
+def _core_info() -> dict:
+    global _core_info_cache
+    if _core_info_cache is not None:
+        return dict(_core_info_cache)
+
+    root = paths.core_root()
+    version = "unknown"
+    try:
+        init_file = root / "src" / "__init__.py"
+        for line in init_file.read_text(encoding="utf-8").splitlines():
+            if line.startswith("__version__") and "=" in line:
+                version = line.split("=", 1)[1].strip().strip("'\" ")
+                break
+    except OSError:
+        pass
+
+    status = deps_installer.status()
+    python_exe = status.get("interpreter") or sys.executable
+    probe = (
+        "import json\n"
+        "from src.server import mcp, register_all_tools\n"
+        "register_all_tools()\n"
+        "print(json.dumps({'tool_count': len(mcp._tool_manager._tools)}))\n"
+    )
+    env = os.environ.copy()
+    env.update({"PYTHONPATH": str(root), "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"})
+    tool_count = None
+    error = None
+    try:
+        result = subprocess.run(
+            [python_exe, "-c", probe], cwd=str(root), env=env,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=15, check=False,
+        )
+        lines = result.stdout.strip().splitlines()
+        payload = json.loads(lines[-1]) if lines else {}
+        if result.returncode == 0:
+            tool_count = int(payload["tool_count"])
+        else:
+            error = result.stderr.strip()[-600:] or "核心工具注册失败"
+    except (OSError, subprocess.TimeoutExpired, ValueError, KeyError) as exc:
+        error = str(exc)
+
+    _core_info_cache = {
+        "version": version,
+        "tool_count": tool_count,
+        "error": error,
+    }
+    return dict(_core_info_cache)
 
 
 def _settings_payload() -> dict:
@@ -313,8 +369,10 @@ def test_client(client_id: str):
     probe = (
         "import json\n"
         "from src.server import mcp, register_all_tools\n"
+        "from src.tools.catalog import group_tool_names\n"
         "register_all_tools()\n"
-        "print(json.dumps(sorted(mcp._tool_manager._tools.keys()), ensure_ascii=False))\n"
+        "names = sorted(mcp._tool_manager._tools.keys())\n"
+        "print(json.dumps({'tools': names, 'groups': group_tool_names(names)}, ensure_ascii=False))\n"
     )
     env = os.environ.copy()
     env.update({
@@ -333,17 +391,21 @@ def test_client(client_id: str):
             timeout=15, check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return {"ok": False, "client": client_id, "tools": [], "error": str(exc)}
+        return {"ok": False, "client": client_id, "tools": [], "groups": [], "tool_count": 0, "error": str(exc)}
     output = completed.stdout.strip().splitlines()
     try:
-        tools = json.loads(output[-1]) if output else []
+        payload = json.loads(output[-1]) if output else {}
+        tools = payload.get("tools", []) if isinstance(payload, dict) else []
+        groups = payload.get("groups", []) if isinstance(payload, dict) else []
     except json.JSONDecodeError:
         tools = []
+        groups = []
     ok = completed.returncode == 0 and isinstance(tools, list)
     return {
         "ok": ok,
         "client": client_id,
         "tools": tools if ok else [],
+        "groups": groups if ok else [],
         "tool_count": len(tools) if ok else 0,
         "error": None if ok else (completed.stderr.strip()[-1200:] or "MCP 进程未能完成初始化"),
     }

@@ -214,6 +214,7 @@ function DiagnosticsDialog({ report, busy, onRefresh, onClose, onSetup, onClient
     <section className="dialog diagnostics-dialog" role="dialog" aria-modal="true" aria-labelledby="diagnostics-title">
       <div className="dialog-header"><div><h2 id="diagnostics-title"><Stethoscope size={18} /> 连接诊断</h2><p>{report.ok ? "所有基础连接均已就绪" : "发现需要处理的项目"}</p></div><button className="btn btn-ghost btn-sm" onClick={onClose}>关闭</button></div>
       <div className="diagnostics-list">{report.checks.map((check) => <div className={`diagnostic-row ${check.ok ? "is-ok" : "is-fail"}`} key={check.id}>{check.ok ? <CheckCircle2 size={17} /> : <XCircle size={17} />}<div className="diagnostic-copy"><strong>{check.label}</strong><span>{check.detail}</span>{check.value && <code>{check.value}</code>}</div>{actionFor(check.id)}</div>)}</div>
+      {report.core && <div className="diagnostics-core"><span>COMSOLPilot Core {report.core.version}</span><span>{report.core.tool_count == null ? "工具数不可用" : `${report.core.tool_count} 个工具`}</span></div>}
       <div className="dialog-footer"><button className="btn btn-secondary" onClick={onRefresh} disabled={busy}>{busy ? <Loader2 className="spin" size={14} /> : <RefreshCw size={14} />} 重新检查</button><button className="btn btn-ghost" onClick={onClose}>完成</button></div>
     </section>
   </div>;
