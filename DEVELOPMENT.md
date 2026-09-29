@@ -2,14 +2,34 @@
 
 ## Source of truth
 
-This repository is the combined COMSOLPilot project. The canonical COMSOLPilot
-core lives in `core/`. The desktop application uses that directory in
-development and bundles it into the packaged sidecar.
+This desktop repository is paired with the standalone COMSOLPilot repository:
 
-Do not maintain a second working copy of the core outside this repository.
-Core changes belong under `core/src`, `core/scripts`, `core/docs`, and
+- `https://github.com/waverlose/COMSOLPilot` is the canonical MCP core.
+- `https://github.com/waverlose/COMSOLPilot-desktop` is this desktop shell.
+
+The desktop repository keeps a synchronized copy under `core/`. The desktop
+application uses that directory in development and bundles it into the
+packaged sidecar.
+
+Core changes should be developed and committed in the standalone core
+repository first. After validation, promote the affected core files into this
+repository's `core/`, run the desktop checks, and commit the synchronized copy.
+Desktop-only changes stay in this repository. Do not create a third core copy.
+
+Core code belongs under `core/src`, `core/scripts`, `core/docs`, and
 `core/tests`. The desktop shell is under `src/`, `electron/`, `src-tauri/`, and
 `python-sidecar/`.
+
+## Two-repository workflow
+
+1. Develop a core feature in the standalone `COMSOLPilot` checkout.
+2. Run the core tests and push the core commit to its `main` branch.
+3. Copy the changed core files into `comsolpilot-desktop/core`.
+4. Run the desktop checks and push the desktop commit to its `main` branch.
+
+The two repositories intentionally have separate commits. `mcp_targets.py` and
+the sidecar integration may contain desktop-only adaptations and must be
+reviewed instead of blindly overwritten during synchronization.
 
 ## Development commands
 
