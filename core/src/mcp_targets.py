@@ -96,6 +96,7 @@ def _env_block(port: int) -> dict[str, str]:
         "PYTHONPATH": str(project_root()),
         "PYTHONUTF8": "1",
         "PYTHONIOENCODING": "utf-8",
+        "COMSOLPILOT_CORE": str(project_root()),
     }
     for key in ("APPDATA", "LOCALAPPDATA", "USERPROFILE", "PROCESSOR_ARCHITECTURE"):
         value = os.environ.get(key)
@@ -275,13 +276,13 @@ def _sync_json(target: Target, path: Path, port: int, ensure: bool,
         env_key = "environment" if "environment" in new_spec else "env"
         env_before = dict(spec.get(env_key) or {})
         env_after = dict(merged.get(env_key) or {})
-        if current == str(port) and env_before == env_after:
+        if current == str(port) and merged == spec:
             return {**result, "action": "ok", "detail": f"COMSOL_PORT already {port}"}
         section[existing_name] = merged
         result["action"] = "updated"
         if current == str(port):
             added = sorted(set(env_after) - set(env_before))
-            result["detail"] = "env refreshed" + (f" (+{', '.join(added)})" if added else "")
+            result["detail"] = "connector refreshed" + (f" (+{', '.join(added)})" if added else "")
         else:
             result["detail"] = f"COMSOL_PORT {current or '(unset)'} -> {port}"
     elif ensure:
@@ -379,7 +380,7 @@ def _sync_codex(target: Target, path: Path, port: int, ensure: bool,
         section = text[start:end]
         port_match = _TOML_PORT.search(section)
         current = port_match.group(1) if port_match else None
-        if current == str(port):
+        if current == str(port) and section.strip() == _codex_block(port):
             return {**result, "action": "ok", "detail": f"COMSOL_PORT already {port}"}
         new_text = text[:start] + _codex_block(port) + "\n\n" + text[end:]
         action, detail = "updated", f"COMSOL_PORT {current or '(unset)'} -> {port}"

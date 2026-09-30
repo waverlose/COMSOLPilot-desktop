@@ -6,7 +6,6 @@ import {
   FolderSearch,
   Loader2,
   Monitor,
-  Play,
   Plug,
   RefreshCw,
   RotateCw,
@@ -42,7 +41,6 @@ export function Dashboard({ onOpenClients, onRunSetup }: Props) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<"headless" | "gui">("gui");
   const [diagnostics, setDiagnostics] = useState<DiagnosticsResponse | null>(null);
   const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
 
@@ -183,13 +181,10 @@ export function Dashboard({ onOpenClients, onRunSetup }: Props) {
 
         <ServerCard
           server={server}
-          mode={mode}
           busy={busy}
-          onModeChange={setMode}
-          onStart={() => runServerAction(() => startServer(mode))}
           onOpenDesktop={() => runServerAction(() => startServer("gui"))}
           onStop={() => runServerAction(stopServer)}
-          onRestart={() => runServerAction(() => restartServer(mode))}
+          onRestart={() => runServerAction(() => restartServer("gui"))}
         />
 
         <ClientsCard
@@ -321,7 +316,9 @@ function EnvironmentCard({
           <div className="info-row">
             <span className="info-label">来源</span>
             <span className="info-value">
-              {deps.interpreter_source === "core-venv"
+              {deps.interpreter_source === "bundled-runtime"
+                ? "安装包内置环境"
+                : deps.interpreter_source === "core-venv"
                 ? "本应用新建的环境"
                 : deps.reusable[0]?.source_label ?? "本机已有环境"}
               {deps.interpreter_version ? `（Python ${deps.interpreter_version}）` : ""}
@@ -347,8 +344,7 @@ function EnvironmentCard({
       {!deps.ready && (
         <>
           <p className="hint" style={{ marginTop: 12 }}>
-            配置时会先扫描本机是否已有可用的 Python 环境（旧版 COMSOLPilot、conda
-            环境等），能复用就直接复用，不会重复下载依赖。
+            安装包自带运行环境；如环境缺失，可以在设置中选择已有环境。
           </p>
           <div className="actions-row">
             <button className="btn btn-primary" onClick={onRunSetup}>
@@ -372,19 +368,13 @@ function startupStage(server: ServerStatus): string {
 
 function ServerCard({
   server,
-  mode,
   busy,
-  onModeChange,
-  onStart,
   onOpenDesktop,
   onStop,
   onRestart,
 }: {
   server: ServerStatus;
-  mode: "headless" | "gui";
   busy: boolean;
-  onModeChange: (mode: "headless" | "gui") => void;
-  onStart: () => void;
   onOpenDesktop: () => void;
   onStop: () => void;
   onRestart: () => void;
@@ -429,25 +419,7 @@ function ServerCard({
 
       <div className="actions-row">
         {!running && !starting && (
-          <>
-            <div className="segmented">
-              <button
-                className={`segmented-item ${mode === "headless" ? "is-active" : ""}`}
-                onClick={() => onModeChange("headless")}
-              >
-                无界面
-              </button>
-              <button
-                className={`segmented-item ${mode === "gui" ? "is-active" : ""}`}
-                onClick={() => onModeChange("gui")}
-              >
-                打开桌面端
-              </button>
-            </div>
-            <button className="btn btn-primary" onClick={onStart} disabled={busy}>
-              <Play size={15} /> 启动服务
-            </button>
-          </>
+          <p className="hint" style={{ margin: 0 }}>使用右上角「启动 COMSOL」启动服务。</p>
         )}
 
         {running && (

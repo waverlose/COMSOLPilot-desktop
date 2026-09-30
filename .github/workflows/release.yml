@@ -65,6 +65,9 @@ jobs:
       - name: Verify PyInstaller
         run: python -m PyInstaller --version
 
+      - name: Build bundled Python runtime
+        run: python -u python-sidecar/build_runtime.py
+
       # 必须在 tauri build 之前跑：tauri.conf.json 的 externalBin 指向
       # src-tauri/binaries/comsolpilot-sidecar-<target-triple>.exe，
       # 文件不在那里，打包会直接失败。

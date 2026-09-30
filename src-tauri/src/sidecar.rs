@@ -160,11 +160,18 @@ fn spawn_dev(app: &tauri::AppHandle, port: u16, token: &str) {
 
 /// 打包态：跑 externalBin 里的可执行文件。
 fn spawn_bundled(app: &tauri::AppHandle, port: u16, token: &str) -> tauri::Result<()> {
+    let mut args = vec!["--port".to_string(), port.to_string(), "--token".to_string(), token.to_string()];
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        args.push("--core".to_string());
+        args.push(resource_dir.join("core").to_string_lossy().into_owned());
+        args.push("--runtime".to_string());
+        args.push(resource_dir.join("runtime").to_string_lossy().into_owned());
+    }
     let command = app
         .shell()
         .sidecar("comsolpilot-sidecar")
         .expect("找不到 comsolpilot-sidecar：检查 tauri.conf.json 的 externalBin 与 binaries/ 目录")
-        .args(["--port", &port.to_string(), "--token", token]);
+        .args(args);
 
     let (mut receiver, _child) = command.spawn().expect("启动 sidecar 失败");
 

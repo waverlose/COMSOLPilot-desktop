@@ -55,6 +55,10 @@
     "externalBin": [
       "binaries/comsolpilot-sidecar"
     ],
+    "resources": {
+      "../build/core-bundle": "core",
+      "../build/runtime": "runtime"
+    },
     "windows": {
       "nsis": {
         "installMode": "currentUser",

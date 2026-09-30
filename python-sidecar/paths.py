@@ -25,6 +25,7 @@ APP_NAME = "COMSOLPilot"
 
 # 环境变量覆盖，方便调试与多实例
 ENV_CORE = "COMSOLPILOT_CORE"
+ENV_RUNTIME = "COMSOLPILOT_RUNTIME"
 
 
 def is_frozen() -> bool:
@@ -98,6 +99,24 @@ def core_venv_python() -> Path | None:
     for relative in (Path("Scripts") / "python.exe", Path("bin") / "python"):
         candidate = core_root() / ".venv" / relative
         if candidate.exists():
+            return candidate
+    return None
+
+
+def bundled_runtime_python() -> Path | None:
+    """Python shipped in the installer resources, when present."""
+    override = os.environ.get(ENV_RUNTIME, "").strip()
+    roots = [Path(override)] if override else []
+    if is_frozen():
+        base = _meipass()
+        if base is not None:
+            roots.append(base / "runtime")
+        roots.append(Path(sys.executable).resolve().parent / "runtime")
+    else:
+        roots.append(desktop_root() / "build" / "runtime")
+    for root in roots:
+        candidate = root / ("python.exe" if os.name == "nt" else "bin/python")
+        if candidate.is_file():
             return candidate
     return None
 

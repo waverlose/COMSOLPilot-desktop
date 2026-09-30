@@ -55,6 +55,7 @@ SOURCE_LABELS = {
     "settings": "上次选定的环境",
     "env-var": "COMSOLPILOT_PYTHON 指定",
     "core-venv": "本应用的环境",
+    "bundled-runtime": "安装包内置环境",
     "mcp-config": "已注册的 COMSOLPilot",
     "existing-install": "本机已装的 COMSOLPilot",
     "conda": "Conda 环境",
@@ -91,10 +92,8 @@ def ensure_core_installed() -> tuple[bool, str]:
         return True, str(paths.core_root())
 
     target = paths.persistent_core()
-    if (target / "src" / "server.py").is_file():
-        return True, str(target)
-
-    source = paths.bundled_core()
+    source_override = os.environ.get(paths.ENV_CORE, "").strip()
+    source = Path(source_override) if source_override else paths.bundled_core()
     if not (source / "src" / "server.py").is_file():
         return False, f"随包核心不完整，缺少 {source / 'src' / 'server.py'}"
     try:
@@ -103,9 +102,10 @@ def ensure_core_installed() -> tuple[bool, str]:
             target,
             dirs_exist_ok=True,
             ignore=shutil.ignore_patterns(
-                ".venv", "__pycache__", "*.pyc", "logs", "target"
+                ".venv", "__pycache__", "*.pyc", "logs", "target", "workspace"
             ),
         )
+        (target / "workspace").mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         return False, f"复制核心到 {target} 失败：{exc}"
     return True, str(target)
@@ -132,6 +132,8 @@ def probe(path: Path) -> Optional[Environment]:
     except (OSError, subprocess.SubprocessError):
         return None
 
+    if done.returncode != 0:
+        return None
     lines = [line for line in (done.stdout or "").splitlines() if line.strip()]
     if not lines:
         return None
@@ -292,17 +294,26 @@ def _candidates() -> list[tuple[Path, str, Optional[Path]]]:
     """(解释器, 来源, 项目根) 列表，已按可信度排序并去重。"""
     raw: list[tuple[Path, str, Optional[Path]]] = []
 
-    # 1. 用户上次选定的
-    chosen = str(paths.read_json(paths.settings_path()).get("python_exe") or "").strip()
-    if chosen:
-        raw.append((Path(chosen), "settings", None))
+    settings = paths.read_json(paths.settings_path())
+    chosen = str(settings.get("python_exe") or "").strip()
 
-    # 2. 环境变量
+    # Explicit overrides take precedence over the shipped runtime.
     override = os.environ.get("COMSOLPILOT_PYTHON")
     if override:
         raw.append((Path(override), "env-var", None))
+    if chosen and settings.get("environment_mode") == "custom":
+        raw.append((Path(chosen), "settings", None))
 
-    # 3. 本应用自己的环境
+    # Default installed environment.
+    bundled = paths.bundled_runtime_python()
+    if bundled:
+        raw.append((bundled, "bundled-runtime", paths.core_root()))
+
+    # Legacy choice, before this application had a bundled runtime.
+    if chosen and settings.get("environment_mode") != "custom":
+        raw.append((Path(chosen), "settings", None))
+
+    # 4. 本应用自己的环境
     own = paths.core_venv_python()
     if own:
         raw.append((own, "core-venv", paths.core_root()))
@@ -396,9 +407,38 @@ def active_interpreter(refresh: bool = False) -> Optional[Path]:
     return None
 
 
+def select_default_environment() -> None:
+    """Persist the installed interpreter unless a valid manual choice exists."""
+    settings = paths.read_json(paths.settings_path())
+    chosen = str(settings.get("python_exe") or "").strip()
+    if settings.get("environment_mode") == "custom" and chosen:
+        selected = probe(Path(chosen))
+        if selected and selected.usable:
+            return
+    bundled = paths.bundled_runtime_python()
+    if bundled:
+        selected = probe(bundled)
+        if selected and selected.usable:
+            if chosen != str(bundled) or settings.get("environment_mode") != "bundled":
+                paths.update_settings(python_exe=str(bundled), environment_mode="bundled")
+            return
+    if settings.get("environment_mode") == "custom":
+        paths.update_settings(environment_mode="auto")
+
+
 def use(path: str) -> dict:
     """把某个解释器记为项目要用的环境。"""
-    environment = probe(Path(path))
+    selected = Path(path).expanduser()
+    if selected.is_dir():
+        candidates = (
+            selected / "python.exe",
+            selected / "Scripts" / "python.exe",
+            selected / "bin" / "python",
+            selected / ".venv" / "Scripts" / "python.exe",
+            selected / ".venv" / "bin" / "python",
+        )
+        selected = next((candidate for candidate in candidates if candidate.is_file()), selected)
+    environment = probe(selected)
     if environment is None:
         return {"ok": False, "error": f"不是可用的 Python 解释器：{path}"}
     if not environment.usable:
@@ -418,7 +458,8 @@ def use(path: str) -> dict:
         environment.label = known.label
         environment.project_root = known.project_root
 
-    paths.update_settings(python_exe=str(Path(path)))
+    mode = "bundled" if selected == paths.bundled_runtime_python() else "custom"
+    paths.update_settings(python_exe=str(selected), environment_mode=mode)
     with _cache_lock:
         _cache["at"] = 0.0
     return {"ok": True, "environment": environment.to_dict()}
@@ -437,9 +478,9 @@ def status(refresh: bool = False) -> dict:
     core_present = (paths.core_root() / "src" / "server.py").is_file()
     environments = discover(refresh=refresh)
     chosen = str(paths.read_json(paths.settings_path()).get("python_exe") or "").strip()
-    current = next((item for item in environments if item.path == chosen), None)
+    current = next((item for item in environments if item.usable), None)
     if current is None:
-        current = next((item for item in environments if item.usable), None)
+        current = next((item for item in environments if item.path == chosen), None)
 
     return {
         "core_root": str(paths.core_root()),
@@ -468,6 +509,10 @@ def _base_interpreters() -> list[list[str]]:
     candidates: list[list[str]] = []
     if shutil.which("py"):
         candidates.extend([["py", f"-{version}"] for version in PREFERRED_VERSIONS])
+    for root in _conda_roots():
+        candidate = root / ("python.exe" if os.name == "nt" else "bin/python")
+        if candidate.is_file():
+            candidates.append([str(candidate)])
     for name in ("python3", "python"):
         if shutil.which(name):
             candidates.append([name])
@@ -480,7 +525,7 @@ def _base_interpreters() -> list[list[str]]:
 def _probe_command(command: list[str]) -> bool:
     try:
         done = subprocess.run(
-            [*command, "-c", "import sys;print(sys.version_info[:2])"],
+            [*command, "-c", "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             timeout=30,
@@ -564,7 +609,7 @@ def _install_requirements(interpreter: Path, root: Path, requirements: Path) -> 
         missing = sorted(name for name, ok in (verified.packages if verified else {}).items() if not ok)
         yield f"[error] dependency verification failed: {', '.join(missing) or 'unavailable environment'}"
         return
-    paths.update_settings(python_exe=str(interpreter))
+    paths.update_settings(python_exe=str(interpreter), environment_mode="custom")
     yield "[done] repaired environment and verified dependencies"
 
 
@@ -597,14 +642,15 @@ def stream_install(force: bool = False, interpreter: str = "") -> Iterator[str]:
     if interpreter:
         target = probe(Path(interpreter))
         if target and target.usable:
-            paths.update_settings(python_exe=target.path)
+            paths.update_settings(python_exe=target.path, environment_mode="custom")
             yield f"[done] 已使用指定环境：{target.path}（Python {target.version}）"
             return
         yield f"[warn] 指定环境不可用，继续查找其它环境：{interpreter}"
 
     if not force:
         for environment in reusable(refresh=True):
-            paths.update_settings(python_exe=environment.path)
+            mode = "bundled" if environment.source == "bundled-runtime" else "custom"
+            paths.update_settings(python_exe=environment.path, environment_mode=mode)
             source = SOURCE_LABELS.get(environment.source, environment.source)
             yield f"[info] 发现可复用的环境（{source}）"
             yield f"[info]   解释器：{environment.path}"
@@ -615,6 +661,20 @@ def stream_install(force: bool = False, interpreter: str = "") -> Iterator[str]:
 
     # ---- 新建 ----
     own = paths.core_venv_python()
+    if own is not None and not _probe_command([str(own)]):
+        version = probe(own)
+        suffix = version.version.replace(".", "-") if version else "unknown"
+        backup = root / f".venv-python-{suffix}"
+        if backup.exists():
+            yield f"[error] 旧环境 Python 版本不兼容，且备份目录已存在：{backup}"
+            return
+        try:
+            (root / ".venv").rename(backup)
+        except OSError as exc:
+            yield f"[error] 无法迁移不兼容的环境：{exc}"
+            return
+        yield f"[info] 已保留旧环境：{backup}"
+        own = None
     if own is None:
         base = find_base_python()
         if base is None:
@@ -661,8 +721,13 @@ def stream_install(force: bool = False, interpreter: str = "") -> Iterator[str]:
         )
         return
 
-    paths.update_settings(python_exe=str(own))
-    yield "[done] 依赖安装完成"
+    verified = probe(own)
+    if verified is None or not verified.usable:
+        missing = sorted(name for name, ready in (verified.packages if verified else {}).items() if not ready)
+        yield f"[error] 依赖验证失败：{', '.join(missing) or '解释器不可用'}"
+        return
+    paths.update_settings(python_exe=str(own), environment_mode="custom")
+    yield "[done] 依赖安装并验证完成"
 
 
 def install(on_line: Optional[Callable[[str], None]] = None, force: bool = False) -> bool:

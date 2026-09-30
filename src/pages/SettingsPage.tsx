@@ -150,7 +150,7 @@ export function SettingsPage({ refreshKey = 0, onOpenSetup }: { refreshKey?: num
         <div>
           <h1 className="page-title">设置</h1>
         </div>
-        {onOpenSetup && <button className="btn btn-ghost" onClick={onOpenSetup}>重新开始引导</button>}
+        {onOpenSetup && <button className="btn btn-ghost" onClick={onOpenSetup}>运行环境高级设置</button>}
       </div>
 
       {error && (

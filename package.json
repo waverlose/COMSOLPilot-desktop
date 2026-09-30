@@ -14,7 +14,7 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:build:nsis": "tauri build --bundles nsis",
-    "release:tauri": "npm run version:check && npm run sidecar:build && npm run tauri:build",
+    "release:tauri": "npm run version:check && npm run sidecar:build && npm run runtime:build && npm run tauri:build",
     "version:sync": "node scripts/sync-version.mjs",
     "version:check": "node scripts/sync-version.mjs --check",
     "signer:generate": "tauri signer generate -w .tauri/comsolpilot.key",
@@ -24,6 +24,7 @@
     "sidecar": "python python-sidecar/sidecar_server.py",
     "sidecar:setup": "node scripts/setup-sidecar-env.mjs",
     "sidecar:build": "python python-sidecar/build_sidecar.py",
+    "runtime:build": "python python-sidecar/build_runtime.py",
     "icons": "python scripts/generate_icons.py"
   },
   "dependencies": {

@@ -218,7 +218,12 @@ def _core_info() -> dict:
         "print(json.dumps({'tool_count': len(mcp._tool_manager._tools)}))\n"
     )
     env = os.environ.copy()
-    env.update({"PYTHONPATH": str(root), "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"})
+    env.update({
+        "PYTHONPATH": str(root),
+        "COMSOLPILOT_CORE": str(root),
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
+    })
     tool_count = None
     error = None
     try:
@@ -381,6 +386,7 @@ def test_client(client_id: str):
         "COMSOL_PORT": str(port),
         "COMSOL_PREWARM": "off",
         "PYTHONPATH": root,
+        "COMSOLPILOT_CORE": root,
         "PYTHONUTF8": "1",
         "PYTHONIOENCODING": "utf-8",
     })
@@ -529,13 +535,21 @@ def main(argv: Optional[list[str]] = None) -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--token", default="", help="本地接口访问令牌（留空则不校验）")
     parser.add_argument("--core", default="", help="覆盖核心目录位置")
+    parser.add_argument("--runtime", default="", help="安装包内置 Python 运行时")
     args = parser.parse_args(argv)
 
     if args.core:
         os.environ[paths.ENV_CORE] = args.core
+    if args.runtime:
+        os.environ[paths.ENV_RUNTIME] = args.runtime
     TOKEN = args.token or None
 
     core_bridge.ensure_windows_env()
+    installed, detail = deps_installer.ensure_core_installed()
+    if installed:
+        # Keep the writable copy outside the installer's versioned resources.
+        os.environ[paths.ENV_CORE] = detail
+        deps_installer.select_default_environment()
     core_root = paths.core_root()
     print(f"[sidecar] 核心目录：{core_root}", flush=True)
     if not core_bridge.core_ready():

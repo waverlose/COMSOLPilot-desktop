@@ -5,7 +5,8 @@ COMSOLPilot Desktop 是一个面向 COMSOL Multiphysics 的桌面工具。它把
 ## 主要功能
 
 - 自动识别本机 COMSOL 安装和版本
-- 自动查找并复用已有 Python 环境
+- 安装包内置 Python 3.12 和完整 MCP 依赖，开箱即用
+- 高级设置中仍可选择已有 Python 环境
 - 一键启动、停止和重启 COMSOL Server
 - 支持 GUI 模式和无界面服务模式
 - 为常用客户端生成或直接写入 MCP 配置
@@ -33,7 +34,7 @@ COMSOLPilot Desktop 是一个面向 COMSOL Multiphysics 的桌面工具。它把
 
 - Windows 10/11 x64
 - 已安装 COMSOL Multiphysics
-- 首次配置时准备可用的 Python 环境，软件会优先复用已有环境
+- 安装包会携带运行环境；COMSOL Multiphysics 本体仍需提前安装并拥有有效授权
 
 ## 下载
 
@@ -41,7 +42,7 @@ COMSOLPilot Desktop 是一个面向 COMSOL Multiphysics 的桌面工具。它把
 
 正式桌面版本使用 Tauri 构建并支持签名在线更新。Electron 入口仅保留给兼容开发，不作为正式发布渠道。
 
-本地正式构建使用 `npm run release:tauri`，只发布 Tauri 的 NSIS/MSI 安装包。
+本地正式构建使用 `npm run release:tauri`，只发布 Tauri 的 NSIS/MSI 安装包。该命令会下载 Windows 嵌入式 Python 3.12、安装 `mph`/`mcp` 等依赖、验证核心工具后再打包；构建机不需要把自己的虚拟环境提交进仓库。
 
 ## 相关项目
 

@@ -4,6 +4,7 @@ import {
   Check,
   CheckCircle2,
   Download,
+  FolderOpen,
   Loader2,
   RefreshCw,
   Recycle,
@@ -12,6 +13,7 @@ import {
 import {
   getDepsStatus,
   listEnvironments,
+  pickDirectory,
   streamDependencyInstall,
   useEnvironment,
   type DepsEnvironment,
@@ -48,7 +50,7 @@ export function DependencyStep({ onNext, onBack }: Props) {
     );
   }, []);
 
-  /** 先看本机有没有能直接复用的环境——有就不下载，这是新用户最常见的路径。 */
+  /** The installer runtime is ready without a separate download. */
   const survey = useCallback(
     async (refresh: boolean) => {
       setPhase("discovering");
@@ -62,7 +64,7 @@ export function DependencyStep({ onNext, onBack }: Props) {
         if (deps.ready && deps.interpreter) {
           setOk(true);
           setLines([
-            `[info] 已找到可用环境，无需安装`,
+            `[info] ${deps.interpreter_source === "bundled-runtime" ? "安装包内置环境已就绪" : "已找到可用环境"}，无需安装`,
             `[info]   解释器：${deps.interpreter}`,
             `[info]   Python ${deps.interpreter_version ?? ""}`,
           ]);
@@ -70,15 +72,9 @@ export function DependencyStep({ onNext, onBack }: Props) {
           return;
         }
 
-        if (envs.reusable.length > 0) {
-          setCandidates(envs.reusable);
-          setSelected(envs.reusable[0].path);
-          setPhase("choose");
-          return;
-        }
-
-        // 一个能用的都没有，只能新建环境再装
-        startInstall(false);
+        setCandidates(envs.reusable);
+        setSelected(envs.reusable[0]?.path ?? null);
+        setPhase("choose");
       } catch (error) {
         setOk(false);
         setLines([
@@ -87,7 +83,7 @@ export function DependencyStep({ onNext, onBack }: Props) {
         setPhase("done");
       }
     },
-    [startInstall],
+    [],
   );
 
   useEffect(() => {
@@ -120,6 +116,24 @@ export function DependencyStep({ onNext, onBack }: Props) {
     setBusy(false);
   }
 
+  async function handlePickEnvironment() {
+    const folder = await pickDirectory();
+    if (!folder) return;
+    setBusy(true);
+    try {
+      await useEnvironment(folder);
+      setOk(true);
+      setLines([`[info] 已选择环境目录：${folder}`, "[done] 环境就绪"]);
+      setPhase("done");
+    } catch (error) {
+      setOk(false);
+      setLines([`[error] ${error instanceof Error ? error.message : String(error)}`]);
+      setPhase("done");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="step-body">
       <h2 className="step-title-sm">配置运行环境</h2>
@@ -127,11 +141,11 @@ export function DependencyStep({ onNext, onBack }: Props) {
       {phase === "discovering" && (
         <>
           <p className="step-subtitle">
-            先扫描本机是否已有可用的 Python 环境，能复用就不重复安装。
+            正在检查软件运行环境。
           </p>
           <div className="status-card">
             <Loader2 className="spin" size={17} />
-            <span>正在扫描本机的 Python 环境…</span>
+            <span>正在检查运行环境…</span>
           </div>
         </>
       )}
@@ -139,10 +153,10 @@ export function DependencyStep({ onNext, onBack }: Props) {
       {phase === "choose" && (
         <>
           <p className="step-subtitle">
-            发现本机已有装好依赖的环境，直接复用可以省下几分钟和一份重复的依赖。
+            选择已有的完整 Python 环境，或在软件核心目录下创建环境并下载依赖。
           </p>
 
-          <div className="client-list">
+          {candidates.length > 0 && <div className="client-list">
             {candidates.map((environment) => (
               <button
                 key={environment.path}
@@ -161,7 +175,14 @@ export function DependencyStep({ onNext, onBack }: Props) {
                 <span className="badge badge-ok">依赖齐备</span>
               </button>
             ))}
-          </div>
+          </div>}
+          {candidates.length === 0 && <p className="hint">没有找到依赖齐全的环境。可以选择其他环境目录，或由软件创建。</p>}
+
+          {status?.core_root && (
+            <p className="field-hint">
+              软件管理环境位置：{status.core_root}\\.venv
+            </p>
+          )}
 
           <div className="step-actions">
             <div className="step-actions-left">
@@ -180,10 +201,13 @@ export function DependencyStep({ onNext, onBack }: Props) {
               >
                 <Download size={15} /> 装个干净环境
               </button>
-              <button className="btn btn-primary" onClick={handleUse} disabled={busy}>
+              <button className="btn btn-ghost" onClick={() => void handlePickEnvironment()} disabled={busy}>
+                <FolderOpen size={15} /> 选择环境目录
+              </button>
+              {selected && <button className="btn btn-primary" onClick={handleUse} disabled={busy}>
                 {busy ? <Loader2 className="spin" size={15} /> : <Recycle size={15} />}
                 使用这个环境
-              </button>
+              </button>}
             </div>
           </div>
         </>

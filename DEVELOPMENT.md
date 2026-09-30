@@ -61,3 +61,10 @@ runtime environment unless that environment has the core dependencies.
 `core/workspace/`, `node_modules/`, `.venv-sidecar/`, `dist/`, `release*/`,
 `build/`, and generated sidecar binaries are local artifacts. They are ignored
 by Git and can be recreated with the setup and build commands.
+
+The release build creates `build/runtime/`, a relocatable Windows Python 3.12
+directory containing the core requirements. Tauri copies it to the installed
+application's `runtime/` resource directory. The sidecar passes that path to
+the environment probe and writes it into MCP client entries. A user-selected
+environment is still supported through the setup wizard and is marked as a
+custom override in `workspace/settings.json`.

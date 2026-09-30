@@ -1823,9 +1823,11 @@ body { background: #f7f8fa; font-size: 13px; }
 .home-status-strip .is-ready i { background: var(--success); }
 .home-status-strip .is-missing i { background: var(--warn); }
 .home-status-strip .btn { margin-left: auto; }
-.dashboard-page > .card-grid { grid-template-columns: minmax(0, 760px); }
-.dashboard-page > .workflow-overview { display: none; }
-.dashboard-page > .card-grid .card:not(#workflow-server) { display: none; }
+.dashboard-page > .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dashboard-page > .workflow-overview { display: block; }
+.dashboard-page > .card-grid .card { display: flex; flex-direction: column; min-width: 0; }
+.dashboard-page > .card-grid .card .actions-row { margin-top: auto; padding-top: 14px; }
+.dashboard-page > .card-grid .card .hint { line-height: 1.55; }
 .connection-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin: 14px 0; padding: 11px 12px; border-top: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft); }
 .connection-facts > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .connection-facts span { color: var(--ink-faint); font-size: 10px; }
