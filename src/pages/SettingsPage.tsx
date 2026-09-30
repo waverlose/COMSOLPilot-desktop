@@ -18,7 +18,7 @@ const LOGIN_MODES: { value: string; label: string; hint: string }[] = [
   { value: "force", label: "每次都询问", hint: "每次连接都要求输入登录信息。" },
 ];
 
-export function SettingsPage({ refreshKey = 0, onOpenSetup }: { refreshKey?: number; onOpenSetup?: () => void }) {
+export function SettingsPage({ refreshKey = 0 }: { refreshKey?: number }) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [versions, setVersions] = useState<VersionsResponse | null>(null);
   const [port, setPort] = useState("");
@@ -150,7 +150,6 @@ export function SettingsPage({ refreshKey = 0, onOpenSetup }: { refreshKey?: num
         <div>
           <h1 className="page-title">设置</h1>
         </div>
-        {onOpenSetup && <button className="btn btn-ghost" onClick={onOpenSetup}>运行环境高级设置</button>}
       </div>
 
       {error && (
@@ -284,8 +283,7 @@ export function SettingsPage({ refreshKey = 0, onOpenSetup }: { refreshKey?: num
               readOnly
             />
             <span className="field-hint">
-              MCP 客户端会用这个解释器启动 COMSOLPilot。可以复用本机已有的环境，
-              不必新建。
+              这是安装包内置的固定运行环境，MCP 客户端会用它启动 COMSOLPilot。
             </span>
           </div>
         </div>

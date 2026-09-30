@@ -102,6 +102,7 @@ def list_clients() -> list[ClientState]:
 
 def config_profile(client_id: str) -> dict:
     """Return a copy-ready connector profile without modifying client files."""
+    deps_installer.select_default_environment()
     dependency_status = deps_installer.status(refresh=True)
     if not dependency_status.get("ready"):
         missing = ", ".join(dependency_status.get("missing") or [])
@@ -119,7 +120,9 @@ def config_profile(client_id: str) -> dict:
     port = server_manager.resolved_port()
     entry = module._entry_for_kind(target.kind, port)
     settings = paths.read_json(paths.settings_path())
-    interpreter = str(settings.get("python_exe") or module.python_exe())
+    interpreter = str(dependency_status.get("interpreter") or module.python_exe())
+    if not interpreter or interpreter == "python":
+        raise RuntimeError("安装包内置 Python 运行时不可用，请重新安装软件")
     if target.kind == "opencode":
         entry["command"] = [interpreter, *entry.get("command", [])[1:]]
     else:

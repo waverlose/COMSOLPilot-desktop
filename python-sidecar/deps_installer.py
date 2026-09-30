@@ -400,21 +400,17 @@ def reusable(refresh: bool = False) -> list[Environment]:
 
 
 def active_interpreter(refresh: bool = False) -> Optional[Path]:
-    """当前应当使用的解释器：优先用户选定，其次任意一个依赖齐备的环境。"""
-    for item in discover(refresh):
-        if item.usable:
-            return Path(item.path)
+    """The packaged runtime is the only supported application interpreter."""
+    bundled = paths.bundled_runtime_python()
+    if bundled and (item := probe(bundled)) and item.usable:
+        return bundled
     return None
 
 
 def select_default_environment() -> None:
-    """Persist the installed interpreter unless a valid manual choice exists."""
+    """Persist the installed runtime as the sole supported interpreter."""
     settings = paths.read_json(paths.settings_path())
     chosen = str(settings.get("python_exe") or "").strip()
-    if settings.get("environment_mode") == "custom" and chosen:
-        selected = probe(Path(chosen))
-        if selected and selected.usable:
-            return
     bundled = paths.bundled_runtime_python()
     if bundled:
         selected = probe(bundled)
@@ -422,12 +418,15 @@ def select_default_environment() -> None:
             if chosen != str(bundled) or settings.get("environment_mode") != "bundled":
                 paths.update_settings(python_exe=str(bundled), environment_mode="bundled")
             return
-    if settings.get("environment_mode") == "custom":
-        paths.update_settings(environment_mode="auto")
+    paths.update_settings(python_exe="", environment_mode="bundled")
 
 
 def use(path: str) -> dict:
-    """把某个解释器记为项目要用的环境。"""
+    """Compatibility endpoint: user supplied Python environments are disabled."""
+    return {"ok": False, "error": "本版本固定使用安装包内置运行环境"}
+
+    # Kept below for source compatibility with older callers.
+    # The desktop UI no longer exposes this path.
     selected = Path(path).expanduser()
     if selected.is_dir():
         candidates = (
@@ -477,10 +476,8 @@ def _core_venv_site_packages() -> dict:
 def status(refresh: bool = False) -> dict:
     core_present = (paths.core_root() / "src" / "server.py").is_file()
     environments = discover(refresh=refresh)
-    chosen = str(paths.read_json(paths.settings_path()).get("python_exe") or "").strip()
-    current = next((item for item in environments if item.usable), None)
-    if current is None:
-        current = next((item for item in environments if item.path == chosen), None)
+    bundled = paths.bundled_runtime_python()
+    current = next((item for item in environments if bundled and item.path == str(bundled) and item.usable), None)
 
     return {
         "core_root": str(paths.core_root()),
@@ -614,10 +611,7 @@ def _install_requirements(interpreter: Path, root: Path, requirements: Path) -> 
 
 
 def stream_install(force: bool = False, interpreter: str = "") -> Iterator[str]:
-    """逐行产出日志。默认**先复用**；只有找不到能用的环境（或 force）才装。
-
-    最后一行是 `[done] ...` 或 `[error] ...`。
-    """
+    """Report the packaged runtime; dependency downloads are intentionally disabled."""
     ok, detail = ensure_core_installed()
     if not ok:
         yield f"[error] {detail}"
@@ -625,6 +619,15 @@ def stream_install(force: bool = False, interpreter: str = "") -> Iterator[str]:
 
     root = paths.core_root()
     yield f"[info] 核心目录：{root}"
+
+    bundled = paths.bundled_runtime_python()
+    selected = probe(bundled) if bundled else None
+    if selected and selected.usable:
+        paths.update_settings(python_exe=str(bundled), environment_mode="bundled")
+        yield f"[done] 已使用安装包内置环境：{bundled}（Python {selected.version}）"
+    else:
+        yield "[error] 安装包内置 Python 运行时不可用，请重新安装软件"
+    return
 
     requirements = root / "requirements-windows.txt"
     if not requirements.is_file():

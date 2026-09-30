@@ -6,6 +6,7 @@ import {
   FolderSearch,
   Loader2,
   Monitor,
+  Play,
   Plug,
   RefreshCw,
   RotateCw,
@@ -15,11 +16,8 @@ import {
   XCircle,
 } from "lucide-react";
 import {
-  detectComsol,
   getDiagnostics,
-  pickDirectory,
   restartServer,
-  setComsolPath,
   startServer,
   stopServer,
   type AppState,
@@ -31,16 +29,15 @@ import { refreshState, useAppState } from "../lib/appState";
 
 interface Props {
   onOpenClients: () => void;
-  onRunSetup: () => void;
 }
 
-export function Dashboard({ onOpenClients, onRunSetup }: Props) {
+export function Dashboard({ onOpenClients }: Props) {
   // 状态来自全局 store：状态栏、功能区也在读同一份，不必各拉一遍接口。
   // 轮询统一由 App 负责。
   const { state, error: linkError } = useAppState();
   const [actionError, setActionError] = useState<string | null>(null);
-  const [detecting, setDetecting] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"headless" | "gui">("gui");
   const [diagnostics, setDiagnostics] = useState<DiagnosticsResponse | null>(null);
   const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
 
@@ -68,18 +65,6 @@ export function Dashboard({ onOpenClients, onRunSetup }: Props) {
     await refreshState();
   }
 
-  async function handleDetect() {
-    setDetecting(true);
-    await run(() => detectComsol());
-    setDetecting(false);
-  }
-
-  async function handlePick() {
-    const directory = await pickDirectory();
-    if (!directory) return;
-    await run(() => setComsolPath(directory));
-  }
-
   async function runServerAction(action: () => Promise<ServerStatus>) {
     setBusy(true);
     await run(action);
@@ -105,17 +90,7 @@ export function Dashboard({ onOpenClients, onRunSetup }: Props) {
     );
   }
 
-  const { comsol, deps, server, clients } = state;
-  const registered = clients.filter((client) => client.registered).length;
-  const detected = clients.filter((client) => client.detected).length;
-  const workflow = [
-    { id: "workflow-comsol", title: "COMSOL 安装", done: comsol.found },
-    { id: "workflow-runtime", title: "运行环境", done: deps.ready },
-    { id: "workflow-server", title: "COMSOL Server", done: server.running },
-    { id: "workflow-clients", title: "客户端", done: registered > 0 },
-  ];
-  const currentWorkflowStep = workflow.findIndex((item) => !item.done);
-
+  const { server } = state;
   return (
     <div className="page dashboard-page">
       <div className="page-header">
@@ -144,67 +119,28 @@ export function Dashboard({ onOpenClients, onRunSetup }: Props) {
         </div>
       )}
 
-      <section className="home-status-strip" aria-label="连接状态">
-        <span className={comsol.found ? "is-ready" : "is-missing"}><i /> COMSOL {comsol.found ? "已识别" : "未配置"}</span>
-        <span className={deps.ready ? "is-ready" : "is-missing"}><i /> Python 环境 {deps.ready ? "已就绪" : "待配置"}</span>
-        <span className={registered > 0 ? "is-ready" : "is-muted"}><i /> 客户端 {registered > 0 ? `${registered} 个已接入` : "未接入"}</span>
-        <button className="btn btn-ghost btn-sm" onClick={() => void openDiagnostics()}><Stethoscope size={13} /> 检查连接</button>
-      </section>
-
-      <section className="workflow-overview" aria-label="接入进度">
-        <div className="workflow-overview-head">
-          <div>
-            <h2>接入流程</h2>
-            <p>{currentWorkflowStep < 0 ? "基础连接已配置，可在客户端的新对话中调用 COMSOL 工具。" : `下一步：${workflow[currentWorkflowStep].title}`}</p>
-          </div>
-          <span className="workflow-count">{workflow.filter((item) => item.done).length} / {workflow.length}</span>
-        </div>
-        <div className="workflow-track">
-          {workflow.map((item, index) => (
-            <button key={item.id} className={`workflow-step ${item.done ? "is-done" : index === currentWorkflowStep ? "is-current" : ""}`} onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
-              <span className="workflow-step-number">{item.done ? <CheckCircle2 size={16} /> : index + 1}</span>
-              <span className="workflow-step-copy"><strong>{item.title}</strong><small>{item.done ? "已完成" : index === currentWorkflowStep ? "当前步骤" : "待处理"}</small></span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <div className="card-grid">
-        <ComsolCard
-          comsol={comsol}
-          detecting={detecting}
-          onDetect={handleDetect}
-          onPick={handlePick}
-        />
-
-        <EnvironmentCard deps={deps} onRunSetup={onRunSetup} />
-
+      <div className="card-grid dashboard-control-grid">
         <ServerCard
           server={server}
+          mode={mode}
+          onModeChange={setMode}
           busy={busy}
+          onStart={() => runServerAction(() => startServer(mode))}
           onOpenDesktop={() => runServerAction(() => startServer("gui"))}
           onStop={() => runServerAction(stopServer)}
-          onRestart={() => runServerAction(() => restartServer("gui"))}
-        />
-
-        <ClientsCard
-          registered={registered}
-          detected={detected}
-          total={clients.length}
-          onOpen={onOpenClients}
+          onRestart={() => runServerAction(() => restartServer(mode))}
         />
       </div>
-      {diagnostics && <DiagnosticsDialog report={diagnostics} busy={diagnosticsBusy} onRefresh={() => void openDiagnostics()} onClose={() => setDiagnostics(null)} onSetup={onRunSetup} onClients={onOpenClients} />}
+      {diagnostics && <DiagnosticsDialog report={diagnostics} busy={diagnosticsBusy} onRefresh={() => void openDiagnostics()} onClose={() => setDiagnostics(null)} onClients={onOpenClients} />}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
 
-function DiagnosticsDialog({ report, busy, onRefresh, onClose, onSetup, onClients }: { report: DiagnosticsResponse; busy: boolean; onRefresh: () => void; onClose: () => void; onSetup: () => void; onClients: () => void }) {
-  const actionFor = (id: string) => id === "python"
-    ? <button className="btn btn-ghost btn-sm" onClick={onSetup}>配置环境 <ArrowRight size={13} /></button>
-    : id === "clients" ? <button className="btn btn-ghost btn-sm" onClick={onClients}>管理客户端 <ArrowRight size={13} /></button> : null;
+function DiagnosticsDialog({ report, busy, onRefresh, onClose, onClients }: { report: DiagnosticsResponse; busy: boolean; onRefresh: () => void; onClose: () => void; onClients: () => void }) {
+  const actionFor = (id: string) => id === "clients"
+    ? <button className="btn btn-ghost btn-sm" onClick={onClients}>管理客户端 <ArrowRight size={13} /></button> : null;
   return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
     <section className="dialog diagnostics-dialog" role="dialog" aria-modal="true" aria-labelledby="diagnostics-title">
       <div className="dialog-header"><div><h2 id="diagnostics-title"><Stethoscope size={18} /> 连接诊断</h2><p>{report.ok ? "所有基础连接均已就绪" : "发现需要处理的项目"}</p></div><button className="btn btn-ghost btn-sm" onClick={onClose}>关闭</button></div>
@@ -215,7 +151,7 @@ function DiagnosticsDialog({ report, busy, onRefresh, onClose, onSetup, onClient
   </div>;
 }
 
-function ComsolCard({
+export function ComsolCard({
   comsol,
   detecting,
   onDetect,
@@ -285,7 +221,7 @@ function describeSource(source?: string | null): string {
 
 // ---------------------------------------------------------------------------
 
-function EnvironmentCard({
+export function EnvironmentCard({
   deps,
   onRunSetup,
 }: {
@@ -368,13 +304,19 @@ function startupStage(server: ServerStatus): string {
 
 function ServerCard({
   server,
+  mode,
+  onModeChange,
   busy,
+  onStart,
   onOpenDesktop,
   onStop,
   onRestart,
 }: {
   server: ServerStatus;
+  mode: "headless" | "gui";
+  onModeChange: (mode: "headless" | "gui") => void;
   busy: boolean;
+  onStart: () => void;
   onOpenDesktop: () => void;
   onStop: () => void;
   onRestart: () => void;
@@ -419,7 +361,19 @@ function ServerCard({
 
       <div className="actions-row">
         {!running && !starting && (
-          <p className="hint" style={{ margin: 0 }}>使用右上角「启动 COMSOL」启动服务。</p>
+          <>
+            <div className="segmented" aria-label="启动模式">
+              <button className={`segmented-item ${mode === "headless" ? "is-active" : ""}`} onClick={() => onModeChange("headless")}>
+                无界面
+              </button>
+              <button className={`segmented-item ${mode === "gui" ? "is-active" : ""}`} onClick={() => onModeChange("gui")}>
+                打开桌面端
+              </button>
+            </div>
+            <button className="btn btn-primary" onClick={onStart} disabled={busy}>
+              <Play size={15} /> 启动服务
+            </button>
+          </>
         )}
 
         {running && (
@@ -442,7 +396,7 @@ function ServerCard({
 
 // ---------------------------------------------------------------------------
 
-function ClientsCard({
+export function ClientsCard({
   registered,
   detected,
   total,

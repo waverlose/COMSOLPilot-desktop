@@ -54,7 +54,7 @@ ALLOWED_ORIGIN_REGEX = (
     r"|app://localhost)$"
 )
 
-app = FastAPI(title="COMSOLPilot Sidecar", version="0.2.9")
+app = FastAPI(title="COMSOLPilot Sidecar", version="0.2.10")
 
 
 @app.middleware("http")
@@ -167,9 +167,9 @@ def diagnostics():
         {
             "id": "python",
             "label": "Python 环境",
-            "ok": bool(deps.ready),
-            "detail": "依赖已就绪" if deps.ready else (f"缺少依赖: {', '.join(deps.missing)}" if deps.missing else "尚未配置环境"),
-            "value": deps.interpreter or "",
+            "ok": bool(deps.get("ready")),
+            "detail": "内置环境已就绪" if deps.get("ready") else (f"缺少依赖: {', '.join(deps.get('missing') or [])}" if deps.get("missing") else "内置环境不可用"),
+            "value": deps.get("interpreter") or "",
         },
         {
             "id": "server",
