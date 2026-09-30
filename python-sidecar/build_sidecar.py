@@ -99,7 +99,14 @@ def build() -> Path:
         str(SIDECAR_DIR / "sidecar_server.py"),
     ]
     print("[build] " + " ".join(command))
-    subprocess.run(command, cwd=str(ROOT), check=True)
+    try:
+        subprocess.run(command, cwd=str(ROOT), check=True)
+    except subprocess.CalledProcessError as exc:
+        warning_file = WORKPATH / BUNDLE_NAME / f"warn-{BUNDLE_NAME}.txt"
+        if warning_file.is_file():
+            print(f"[build] PyInstaller warnings: {warning_file}", file=sys.stderr)
+            print(warning_file.read_text(encoding="utf-8", errors="replace")[-12000:], file=sys.stderr)
+        raise exc
 
     built = OUTPUT_DIR / f"{BUNDLE_NAME}.exe"
     if not built.is_file():

@@ -29,7 +29,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.12"
           cache: pip
 
       - uses: dtolnay/rust-toolchain@stable
@@ -58,6 +58,9 @@ jobs:
 
       - name: 安装 Python 依赖（含 PyInstaller）
         run: python -m pip install -r python-sidecar/requirements.txt
+
+      - name: Verify PyInstaller
+        run: python -m PyInstaller --version
 
       # 必须在 tauri build 之前跑：tauri.conf.json 的 externalBin 指向
       # src-tauri/binaries/comsolpilot-sidecar-<target-triple>.exe，
