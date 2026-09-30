@@ -29,6 +29,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+# GitHub Windows runners can expose cp1252 as the console encoding. Build
+# paths and diagnostics contain non-ASCII text, so keep logging independent of
+# the runner locale.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 ROOT = Path(__file__).resolve().parent.parent
 SIDECAR_DIR = ROOT / "python-sidecar"
 CORE_DIR = ROOT / "core"
