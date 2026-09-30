@@ -23,14 +23,14 @@ jobs:
     name: 前端与清单
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
@@ -63,7 +63,7 @@ jobs:
     name: Rust 编译检查
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # tauri.conf.json 里声明了 externalBin，cargo check 阶段该文件必须存在，
       # 否则 tauri-build 会报「找不到外部二进制」。
