@@ -70,16 +70,22 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           $ErrorActionPreference = "Stop"
-          python -u python-sidecar/build_sidecar.py 2>&1 | Tee-Object -FilePath sidecar-build.log
-          if ($LASTEXITCODE -ne 0) {
+          "=== Python ===" | Tee-Object -FilePath sidecar-build.log
+          python --version 2>&1 | Tee-Object -FilePath sidecar-build.log -Append
+          "=== PyInstaller ===" | Tee-Object -FilePath sidecar-build.log -Append
+          python -m PyInstaller --version 2>&1 | Tee-Object -FilePath sidecar-build.log -Append
+          "=== Build ===" | Tee-Object -FilePath sidecar-build.log -Append
+          python -u python-sidecar/build_sidecar.py 2>&1 | Tee-Object -FilePath sidecar-build.log -Append
+          $buildExitCode = $LASTEXITCODE
+          if ($buildExitCode -ne 0) {
             Write-Host "--- sidecar-build.log ---"
             Get-Content sidecar-build.log -ErrorAction SilentlyContinue
-            exit $LASTEXITCODE
+            exit $buildExitCode
           }
 
       - name: Upload sidecar build log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: sidecar-build-log
           path: sidecar-build.log
