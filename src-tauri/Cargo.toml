@@ -1,6 +1,6 @@
 [package]
 name = "comsolpilot-desktop"
-version = "0.2.6"
+version = "0.2.7"
 description = "COMSOLPilot 桌面壳：负责拉起 Python sidecar、原生文件夹选择器和窗口管理"
 authors = ["waverlose"]
 edition = "2021"

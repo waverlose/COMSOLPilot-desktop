@@ -70,16 +70,19 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           $ErrorActionPreference = "Stop"
-          "=== Python ===" | Tee-Object -FilePath sidecar-build.log
-          python --version 2>&1 | Tee-Object -FilePath sidecar-build.log -Append
-          "=== PyInstaller ===" | Tee-Object -FilePath sidecar-build.log -Append
-          python -m PyInstaller --version 2>&1 | Tee-Object -FilePath sidecar-build.log -Append
-          "=== Build ===" | Tee-Object -FilePath sidecar-build.log -Append
-          python -u python-sidecar/build_sidecar.py 2>&1 | Tee-Object -FilePath sidecar-build.log -Append
+          # PyInstaller writes normal INFO output to stderr. Redirect native
+          # output to the log file instead of piping it through Tee-Object,
+          # which PowerShell can treat as a terminating ErrorRecord.
+          "=== Python ===" | Set-Content -Path sidecar-build.log
+          python --version *>> sidecar-build.log
+          "=== PyInstaller ===" | Add-Content -Path sidecar-build.log
+          python -m PyInstaller --version *>> sidecar-build.log
+          "=== Build ===" | Add-Content -Path sidecar-build.log
+          python -u python-sidecar/build_sidecar.py *>> sidecar-build.log
           $buildExitCode = $LASTEXITCODE
+          Get-Content sidecar-build.log
           if ($buildExitCode -ne 0) {
             Write-Host "--- sidecar-build.log ---"
-            Get-Content sidecar-build.log -ErrorAction SilentlyContinue
             exit $buildExitCode
           }
 
