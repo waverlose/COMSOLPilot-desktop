@@ -65,6 +65,19 @@ jobs:
       - name: 打包 Python sidecar 为单文件 exe
         run: python python-sidecar/build_sidecar.py
 
+      - name: Prepare Tauri updater signing
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            Write-Host "TAURI_SIGNING_PRIVATE_KEY is not configured; disabling updater artifacts for this build."
+            $configPath = "src-tauri/tauri.conf.json"
+            $config = Get-Content -Raw $configPath | ConvertFrom-Json
+            $config.bundle.createUpdaterArtifacts = $false
+            $config | ConvertTo-Json -Depth 100 | Set-Content -Encoding utf8 $configPath
+          }
+
       - name: 构建并创建 Release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -92,4 +105,5 @@ jobs:
           # 先出草稿，人工确认产物没问题再点发布——比直接发出去再撤回省事
           releaseDraft: false
           prerelease: false
+          includeUpdaterJson: true
           args: --bundles nsis,msi
