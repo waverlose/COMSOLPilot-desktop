@@ -54,7 +54,7 @@ ALLOWED_ORIGIN_REGEX = (
     r"|app://localhost)$"
 )
 
-app = FastAPI(title="COMSOLPilot Sidecar", version="0.2.3")
+app = FastAPI(title="COMSOLPilot Sidecar", version="0.2.4")
 
 
 @app.middleware("http")

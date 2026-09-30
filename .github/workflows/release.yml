@@ -66,7 +66,24 @@ jobs:
       # src-tauri/binaries/comsolpilot-sidecar-<target-triple>.exe，
       # 文件不在那里，打包会直接失败。
       - name: 打包 Python sidecar 为单文件 exe
-        run: python python-sidecar/build_sidecar.py
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          python -u python-sidecar/build_sidecar.py 2>&1 | Tee-Object -FilePath sidecar-build.log
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "--- sidecar-build.log ---"
+            Get-Content sidecar-build.log -ErrorAction SilentlyContinue
+            exit $LASTEXITCODE
+          }
+
+      - name: Upload sidecar build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sidecar-build-log
+          path: sidecar-build.log
+          if-no-files-found: warn
 
       - name: Prepare Tauri updater signing
         shell: pwsh
