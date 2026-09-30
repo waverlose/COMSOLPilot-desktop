@@ -26,8 +26,17 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhFQ0M4NkJDQkU1QUIwNTgKUldSWXNGcSt2SWJNamxSWHZySE1hZzBkdHM2cjljNjJ0UWpoVy8yWDNsSW5QeEhuSjFnMUcxclUK",
+      "endpoints": [
+        "https://github.com/waverlose/COMSOLPilot-desktop/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": [
       "nsis",
       "msi"

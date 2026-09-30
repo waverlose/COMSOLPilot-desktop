@@ -39,6 +39,10 @@ COMSOLPilot Desktop 是一个面向 COMSOL Multiphysics 的桌面工具。它把
 
 前往 GitHub 的 [Releases](https://github.com/waverlose/COMSOLPilot-desktop/releases) 下载 Windows 安装包。
 
+正式桌面版本使用 Tauri 构建并支持签名在线更新。Electron 入口仅保留给兼容开发，不作为正式发布渠道。
+
+本地正式构建使用 `npm run release:tauri`，只发布 Tauri 的 NSIS/MSI 安装包。
+
 ## 相关项目
 
 COMSOLPilot Desktop 使用 [COMSOLPilot](https://github.com/waverlose/COMSOLPilot) 作为建模和 MCP 能力核心。

@@ -69,6 +69,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # 启用自动更新后取消下面两行的注释，并在仓库 Secrets 里配置：
           #   TAURI_SIGNING_PRIVATE_KEY          私钥内容（npm run signer:generate 生成）
           #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD 生成时设的口令（无口令则留空字符串）

@@ -27,6 +27,49 @@ export interface ElectronBridge {
   onWindowMaximized(listener: (maximized: boolean) => void): () => void;
 }
 
+export interface UpdateCheck {
+  available: boolean;
+  version?: string;
+  date?: string;
+  notes?: string;
+  reason?: string;
+}
+
+let pendingTauriUpdate: { downloadAndInstall: () => Promise<void> } | null = null;
+
+export async function checkForUpdates(): Promise<UpdateCheck> {
+  switch (shellKind()) {
+    case "tauri": {
+      const { check } = await import("@tauri-apps/plugin-updater");
+      const update = await check();
+      pendingTauriUpdate = update ? { downloadAndInstall: () => update.downloadAndInstall() } : null;
+      return update
+        ? { available: true, version: update.version, date: update.date ?? undefined, notes: update.body ?? undefined }
+        : { available: false };
+    }
+    case "electron":
+      return { available: false, reason: "Electron 仅用于兼容开发，正式更新请使用 Tauri 版本" };
+    default:
+      return { available: false, reason: "browser" };
+  }
+}
+
+export async function installUpdate(): Promise<void> {
+  switch (shellKind()) {
+    case "tauri": {
+      if (!pendingTauriUpdate) throw new Error("没有可安装的更新");
+      await pendingTauriUpdate.downloadAndInstall();
+      const { relaunch } = await import("@tauri-apps/plugin-process");
+      await relaunch();
+      return;
+    }
+    case "electron":
+      throw new Error("Electron 仅用于兼容开发，正式更新请使用 Tauri 版本");
+    default:
+      throw new Error("浏览器模式不支持安装更新");
+  }
+}
+
 declare global {
   interface Window {
     comsolpilot?: ElectronBridge;

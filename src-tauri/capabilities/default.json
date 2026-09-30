@@ -7,6 +7,8 @@
     "core:default",
     "core:event:default",
     "dialog:allow-open",
+    "updater:default",
+    "process:allow-restart",
     {
       "identifier": "shell:allow-execute",
       "allow": [{ "name": "binaries/comsolpilot-sidecar", "sidecar": true }]

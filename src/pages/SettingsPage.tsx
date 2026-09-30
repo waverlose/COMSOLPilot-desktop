@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, FolderOpen, Loader2, Save } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, FolderOpen, Loader2, Save } from "lucide-react";
 import {
   getSettings,
   listComsolVersions,
@@ -9,6 +9,7 @@ import {
   type AppSettings,
   type VersionsResponse,
 } from "../lib/api";
+import { checkForUpdates, installUpdate, shellKind, type UpdateCheck } from "../lib/shell";
 
 const LOGIN_MODES: { value: string; label: string; hint: string }[] = [
   { value: "auto", label: "需要登录（推荐）", hint: "客户端连接前需先在 COMSOL 桌面端登录一次。" },
@@ -25,6 +26,9 @@ export function SettingsPage({ refreshKey = 0, onOpenSetup }: { refreshKey?: num
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [update, setUpdate] = useState<UpdateCheck | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [installingUpdate, setInstallingUpdate] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -91,6 +95,32 @@ export function SettingsPage({ refreshKey = 0, onOpenSetup }: { refreshKey?: num
       setError(err instanceof Error ? err.message : String(err));
     }
     setBusy(false);
+  }
+
+  async function handleCheckUpdate() {
+    setCheckingUpdate(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const result = await checkForUpdates();
+      setUpdate(result);
+      setMessage(result.available ? `发现新版本 ${result.version ?? ""}` : "当前已是最新版本");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }
+
+  async function handleInstallUpdate() {
+    setInstallingUpdate(true);
+    setError(null);
+    try {
+      await installUpdate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setInstallingUpdate(false);
+    }
   }
 
   if (!settings) {
@@ -262,6 +292,16 @@ export function SettingsPage({ refreshKey = 0, onOpenSetup }: { refreshKey?: num
       </div>
 
       <div className="actions-row-end">
+        <button className="btn btn-ghost" onClick={() => void handleCheckUpdate()} disabled={checkingUpdate || installingUpdate}>
+          {checkingUpdate ? <Loader2 className="spin" size={15} /> : <Download size={15} />}
+          检查更新
+        </button>
+        {update?.available && (
+          <button className="btn btn-primary" onClick={() => void handleInstallUpdate()} disabled={installingUpdate}>
+            {installingUpdate ? <Loader2 className="spin" size={15} /> : <Download size={15} />}
+            安装 {update.version}
+          </button>
+        )}
         <button
           className="btn btn-ghost"
           onClick={() => void revealDirectory(settings.logs_dir)}
@@ -276,6 +316,7 @@ export function SettingsPage({ refreshKey = 0, onOpenSetup }: { refreshKey?: num
           保存
         </button>
       </div>
+      {shellKind() === "browser" && <span className="field-hint">开发浏览器模式不支持在线安装更新。</span>}
     </div>
   );
 }
